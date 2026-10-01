@@ -2,6 +2,8 @@
 
 use pyo3::prelude::*;
 
+#[cfg(feature = "blame")]
+mod blame;
 mod config;
 #[cfg(feature = "blob-diff")]
 mod diff;
@@ -10,6 +12,8 @@ mod diff_options;
 mod error;
 #[cfg(feature = "index")]
 mod index;
+#[cfg(feature = "notes")]
+mod notes;
 mod objects;
 mod references;
 mod repository;
@@ -62,6 +66,10 @@ fn build_features() -> Vec<&'static str> {
 #[pymodule(gil_used = false)]
 fn _gix(m: &Bound<'_, PyModule>) -> PyResult<()> {
     config::register(m)?;
+    #[cfg(feature = "blame")]
+    blame::register(m)?;
+    #[cfg(feature = "notes")]
+    notes::register(m)?;
     #[cfg(feature = "status")]
     status::register(m)?;
     #[cfg(feature = "blob-diff")]

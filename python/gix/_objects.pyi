@@ -12,6 +12,7 @@ EntryKind: TypeAlias = Literal["tree", "blob", "exe", "link", "commit"]
 ObjectSpec: TypeAlias = ObjectId | Object | Blob | Tree | Commit | Tag | str | bytes
 
 class Time:
+    def __init__(self, seconds: int, offset: int = 0) -> None: ...
     @property
     def seconds(self) -> int: ...
     @property

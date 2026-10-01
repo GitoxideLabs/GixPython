@@ -26,6 +26,15 @@ pub struct Time {
     pub offset: i32,
 }
 
+#[pymethods]
+impl Time {
+    #[new]
+    #[pyo3(signature = (seconds, offset=0))]
+    fn new(seconds: i64, offset: i32) -> Self {
+        Self { seconds, offset }
+    }
+}
+
 impl From<gix::date::Time> for Time {
     fn from(value: gix::date::Time) -> Self {
         Self {
