@@ -7,6 +7,7 @@ mod attributes;
 #[cfg(feature = "blame")]
 mod blame;
 mod config;
+mod config_queries;
 #[cfg(feature = "blob-diff")]
 mod diff;
 #[cfg(feature = "blob-diff")]
@@ -81,6 +82,7 @@ fn build_features() -> Vec<&'static str> {
 #[pymodule(gil_used = false)]
 fn _gix(m: &Bound<'_, PyModule>) -> PyResult<()> {
     config::register(m)?;
+    config_queries::register(m)?;
     #[cfg(feature = "network")]
     network::register(m)?;
     #[cfg(feature = "attributes")]
