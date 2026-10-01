@@ -17,7 +17,7 @@ use pyo3::{
     types::{PyBytes, PyDict, PyTuple},
 };
 
-pyo3::create_exception!(_gix, CancelledError, crate::error::Error);
+pyo3::create_exception!(gix, CancelledError, crate::error::Error);
 
 const POLL_INTERVAL: Duration = Duration::from_millis(50);
 
@@ -305,14 +305,17 @@ pub struct IterProducer<T, E> {
 }
 
 impl<T: Send, E: Send> IterProducer<T, E> {
+    pub fn requested(&self) -> bool {
+        self.requests.recv().is_ok() && !self.interrupt.load(Ordering::Acquire)
+    }
+    pub fn send(&self, item: T) -> bool {
+        self.results.send(IterEvent::Item(item)).is_ok()
+    }
     pub fn serve(self, mut iter: impl Iterator<Item = Result<T, E>>) -> Result<(), E> {
-        while self.requests.recv().is_ok() {
-            if self.interrupt.load(Ordering::Acquire) {
-                break;
-            }
+        while self.requested() {
             match iter.next() {
                 Some(Ok(item)) => {
-                    if self.results.send(IterEvent::Item(item)).is_err() {
+                    if !self.send(item) {
                         break;
                     }
                 }
@@ -428,8 +431,13 @@ impl<T: Send + 'static, E: Send + 'static> OwnedIter<T, E> {
         };
         // One outstanding request is guaranteed by the Busy state. The worker may have
         // already reported an initialization error and disconnected the request channel.
-        let _ = worker.requests.try_send(());
-        let result = receive(py, &mut worker.results, self.cancel.as_ref(), &self.interrupt);
+        let result = match check_interrupt(py, self.cancel.as_ref(), &self.interrupt) {
+            Ok(()) => {
+                let _ = worker.requests.try_send(());
+                receive(py, &mut worker.results, self.cancel.as_ref(), &self.interrupt)
+            }
+            Err(error) => Err(error),
+        };
         if let Ok(Some(IterEvent::Item(item))) = result {
             *self.state.lock().unwrap_or_else(|e| e.into_inner()) = IterState::Running(worker);
             return Ok(Some(Ok(item)));
@@ -472,6 +480,17 @@ impl<T: Send + 'static, E: Send + 'static> OwnedIter<T, E> {
         }
     }
 
+    /// A returned native handle outlives the operation that constructed it. End that
+    /// operation's progress/cancellation scope after its first successful response.
+    pub fn finish_initialization(&mut self) {
+        if let IterState::Running(worker) = self.state.get_mut().unwrap_or_else(|e| e.into_inner()) {
+            worker.lease.finish("succeeded");
+            worker.lease.owner = None;
+        }
+        self.progress = None;
+        self.cancel = None;
+    }
+
     pub fn close(&self, py: Python<'_>) -> PyResult<()> {
         let state = {
             let mut state = self.state.lock().unwrap_or_else(|e| e.into_inner());
@@ -507,6 +526,77 @@ impl<T, E> Drop for OwnedIter<T, E> {
         // Disconnect without joining in a Python destructor. The Python-free worker owns
         // its repository and buffers and finishes native cleanup after seeing cancellation.
         *state = IterState::Closed;
+    }
+}
+
+/// A persistent native owner uses the iterator transport to answer one command at a time.
+pub struct CommandOwner<C, R> {
+    commands: Arc<Mutex<Option<C>>>,
+    executing: AtomicBool,
+    inner: OwnedIter<PyResult<R>, PyErr>,
+}
+
+impl<C: Send + 'static, R: Send + 'static> CommandOwner<C, R> {
+    pub fn new(
+        name: &'static str,
+        factory: impl FnOnce(OperationContext, Arc<Mutex<Option<C>>>, IterProducer<PyResult<R>, PyErr>) -> PyResult<()>
+        + Send
+        + 'static,
+    ) -> Self {
+        Self::new_with_options(name, None, None, factory)
+    }
+    pub fn new_with_options(
+        name: &'static str,
+        progress: Option<&Progress>,
+        cancel: Option<&CancellationToken>,
+        factory: impl FnOnce(OperationContext, Arc<Mutex<Option<C>>>, IterProducer<PyResult<R>, PyErr>) -> PyResult<()>
+        + Send
+        + 'static,
+    ) -> Self {
+        let commands = Arc::new(Mutex::new(None));
+        let incoming = commands.clone();
+        Self {
+            commands,
+            executing: AtomicBool::new(false),
+            inner: OwnedIter::new(name, progress, cancel, move |context, producer| {
+                factory(context, incoming, producer)
+            }),
+        }
+    }
+    pub fn call(&self, py: Python<'_>, command: C) -> PyResult<R> {
+        if self
+            .executing
+            .compare_exchange(false, true, Ordering::AcqRel, Ordering::Acquire)
+            .is_err()
+        {
+            return Err(PyRuntimeError::new_err("native handle is already executing"));
+        }
+        struct Release<'a>(&'a AtomicBool);
+        impl Drop for Release<'_> {
+            fn drop(&mut self) {
+                self.0.store(false, Ordering::Release);
+            }
+        }
+        let _release = Release(&self.executing);
+        *self.commands.lock().unwrap_or_else(|e| e.into_inner()) = Some(command);
+        self.inner
+            .next(py)?
+            .ok_or_else(|| PyRuntimeError::new_err("native handle is closed"))??
+    }
+    pub fn finish_initialization(&mut self) {
+        self.inner.finish_initialization();
+    }
+    pub fn close(&self, py: Python<'_>) -> PyResult<()> {
+        self.inner.close(py)
+    }
+    pub fn finish(&self, py: Python<'_>) -> PyResult<()> {
+        match self.inner.next(py)? {
+            None => Ok(()),
+            Some(Err(error)) | Some(Ok(Err(error))) => Err(error),
+            Some(Ok(Ok(_))) => Err(PyRuntimeError::new_err(
+                "native handle returned an unexpected final result",
+            )),
+        }
     }
 }
 
@@ -590,6 +680,27 @@ mod tests {
             assert!(finished.load(Ordering::Acquire));
             assert_eq!(progress.state(), "cancelled");
             assert!(canceller.join().is_ok());
+        });
+    }
+
+    #[test]
+    fn cancelled_parked_iterator_does_not_advance_again() {
+        Python::initialize();
+        Python::attach(|py| {
+            let token = CancellationToken::default();
+            let advanced = Arc::new(AtomicUsize::new(0));
+            let observed = advanced.clone();
+            let iter = OwnedIter::new("parked", None, Some(&token), move |_, producer| {
+                producer.serve((0..3).map(move |value| {
+                    observed.fetch_add(1, Ordering::SeqCst);
+                    Ok::<_, ()>(value)
+                }))
+            });
+            assert!(matches!(iter.next(py), Ok(Some(Ok(0)))));
+            token.cancel();
+            assert!(matches!(iter.next(py), Err(e) if e.is_instance_of::<CancelledError>(py)));
+            assert_eq!(advanced.load(Ordering::SeqCst), 1);
+            assert!(matches!(iter.next(py), Ok(None)));
         });
     }
 
