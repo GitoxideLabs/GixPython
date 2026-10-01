@@ -1,0 +1,51 @@
+pub use crate::client::non_io_types::connect::Options;
+
+#[cfg(feature = "async-std")]
+pub(crate) mod function {
+    use crate::client::{async_io::Transport, git::async_io::Connection};
+    use gix_error::Result;
+    use gix_error::{ResultExt, bail, message};
+
+    /// A general purpose connector connecting to a repository identified by the given `url`.
+    ///
+    /// This includes connections to
+    /// [git daemons][Connection::new_tcp()] only at the moment.
+    ///
+    /// Use `options` to further control specifics of the transport resulting from the connection.
+    pub async fn connect<Url, E>(url: Url, options: super::Options) -> Result<Box<dyn Transport + Send>>
+    where
+        Url: TryInto<gix_url::Url, Error = E>,
+        E: std::error::Error + Send + Sync + 'static,
+    {
+        let mut url = url.try_into().or_raise(|| message("Could not parse URL"))?;
+        Ok(match url.scheme {
+            gix_url::Scheme::Git => {
+                if url.user().is_some() {
+                    bail!(message!(
+                        "The url {:?} contains information that would not be used by the {} protocol",
+                        url.to_bstring(),
+                        url.scheme
+                    ));
+                }
+                let path = std::mem::take(&mut url.path);
+                Box::new(
+                    Connection::new_tcp(
+                        url.host().expect("host is present in url"),
+                        url.port,
+                        path,
+                        options.version,
+                        options.trace,
+                    )
+                    .await
+                    .or_raise(|| message("connection failed"))?,
+                )
+            }
+            scheme => {
+                bail!(message!("The '{scheme}' protocol is currently unsupported"));
+            }
+        })
+    }
+}
+
+#[cfg(feature = "async-std")]
+pub use function::connect;

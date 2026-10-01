@@ -1167,7 +1167,6 @@ dependencies = [
 [[package]]
 name = "gix-ref"
 version = "0.68.0"
-source = "git+https://github.com/GitoxideLabs/gitoxide?rev=f819565c2c4c56619c4888acef6cf3b8144cbccb#f819565c2c4c56619c4888acef6cf3b8144cbccb"
 dependencies = [
  "gix-actor",
  "gix-error",
@@ -1312,7 +1311,6 @@ dependencies = [
 [[package]]
 name = "gix-transport"
 version = "0.60.0"
-source = "git+https://github.com/GitoxideLabs/gitoxide?rev=f819565c2c4c56619c4888acef6cf3b8144cbccb#f819565c2c4c56619c4888acef6cf3b8144cbccb"
 dependencies = [
  "base64 0.22.1",
  "bstr",

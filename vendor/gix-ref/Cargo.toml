@@ -1,0 +1,47 @@
+
+[package]
+name = "gix-ref"
+version = "0.68.0"
+repository = "https://github.com/GitoxideLabs/gitoxide"
+license = "MIT OR Apache-2.0"
+description = "A crate to handle git references"
+authors = ["Sebastian Thiel <sebastian.thiel@icloud.com>"]
+edition = "2024"
+include = ["/src/**/*", "/LICENSE-*"]
+rust-version = "1.88"
+
+[lib]
+doctest = false
+test = true
+
+[features]
+## Enable support for the SHA-1 hash by enabling the respective feature in the `gix-hash` crate.
+sha1 = ["gix-hash/sha1"]
+## Enable support for the SHA-256 hash by enabling the respective feature in the `gix-hash` crate.
+sha256 = ["gix-hash/sha256"]
+## Data structures implement `serde::Serialize` and `serde::Deserialize`.
+serde = ["dep:serde", "gix-hash/serde", "gix-actor/serde", "gix-object/serde"]
+## Enable support for thread-safety.
+parallel = ["gix-features/parallel"]
+
+[dependencies]
+gix-error = { version = "^0.4.0", git = "https://github.com/GitoxideLabs/gitoxide", rev = "f819565c2c4c56619c4888acef6cf3b8144cbccb" }
+gix-features = { version = "^0.50.0", git = "https://github.com/GitoxideLabs/gitoxide", rev = "f819565c2c4c56619c4888acef6cf3b8144cbccb", features = ["walkdir"] }
+gix-fs = { version = "^0.23.0", git = "https://github.com/GitoxideLabs/gitoxide", rev = "f819565c2c4c56619c4888acef6cf3b8144cbccb" }
+gix-path = { version = "^0.13.0", git = "https://github.com/GitoxideLabs/gitoxide", rev = "f819565c2c4c56619c4888acef6cf3b8144cbccb" }
+gix-hash = { version = "^0.27.0", git = "https://github.com/GitoxideLabs/gitoxide", rev = "f819565c2c4c56619c4888acef6cf3b8144cbccb" }
+gix-object = { version = "^0.65.0", git = "https://github.com/GitoxideLabs/gitoxide", rev = "f819565c2c4c56619c4888acef6cf3b8144cbccb" }
+gix-utils = { version = "^0.4.0", git = "https://github.com/GitoxideLabs/gitoxide", rev = "f819565c2c4c56619c4888acef6cf3b8144cbccb" }
+gix-validate = { version = "^0.12.0", git = "https://github.com/GitoxideLabs/gitoxide", rev = "f819565c2c4c56619c4888acef6cf3b8144cbccb" }
+gix-actor = { version = "^0.43.0", git = "https://github.com/GitoxideLabs/gitoxide", rev = "f819565c2c4c56619c4888acef6cf3b8144cbccb" }
+gix-lock = { version = "^25.0.0", git = "https://github.com/GitoxideLabs/gitoxide", rev = "f819565c2c4c56619c4888acef6cf3b8144cbccb" }
+gix-tempfile = { version = "^25.0.0", default-features = false, git = "https://github.com/GitoxideLabs/gitoxide", rev = "f819565c2c4c56619c4888acef6cf3b8144cbccb" }
+serde = { version = "1.0.114", optional = true, default-features = false, features = ["derive"] }
+
+# packed refs
+memmap2 = "0.9.11"
+
+document-features = { version = "0.2.1", optional = true }
+
+[package.metadata.docs.rs]
+features = ["sha1", "document-features", "serde"]
