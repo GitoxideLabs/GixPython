@@ -3,7 +3,7 @@
 use std::{
     ops::Deref,
     path::PathBuf,
-    sync::{Arc, Mutex},
+    sync::{Arc, RwLock},
 };
 
 use gix::bstr::ByteSlice;
@@ -57,23 +57,25 @@ impl IndexSnapshot {
 #[pyclass(frozen, module = "gix", from_py_object)]
 #[derive(Clone)]
 pub struct IndexFile {
-    inner: Arc<Mutex<IndexSnapshot>>,
+    inner: Arc<RwLock<IndexSnapshot>>,
 }
 
 impl IndexFile {
     pub fn from_native(index: gix::index::File) -> Self {
         Self {
-            inner: Arc::new(Mutex::new(IndexSnapshot::Owned(Arc::new(index)))),
+            inner: Arc::new(RwLock::new(IndexSnapshot::Owned(Arc::new(index)))),
         }
     }
     pub fn from_shared(index: gix::worktree::Index) -> Self {
         Self {
-            inner: Arc::new(Mutex::new(IndexSnapshot::Shared(index))),
+            inner: Arc::new(RwLock::new(IndexSnapshot::Shared(index))),
         }
     }
     pub fn snapshot(&self) -> PyResult<IndexSnapshot> {
+        // Shared read locks only cover cloning ownership, so independent readers
+        // overlap without waiting for a mutation while attached to Python.
         self.inner
-            .try_lock()
+            .try_read()
             .map(|index| index.clone())
             .map_err(|_| PyRuntimeError::new_err("index is already being mutated"))
     }
@@ -85,7 +87,7 @@ impl IndexFile {
         let inner = self.inner.clone();
         runtime::run(py, "index mutation", None, None, move |_| {
             let mut state = inner
-                .try_lock()
+                .try_write()
                 .map_err(|_| PyRuntimeError::new_err("index is already being mutated"))?;
             work(state.make_mut())
         })?
