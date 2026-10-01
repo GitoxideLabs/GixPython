@@ -1,0 +1,29 @@
+[build-system]
+requires = ["maturin>=1.15,<2"]
+build-backend = "maturin"
+
+[project]
+name = "GixPython"
+dynamic = ["version"]
+description = "Faithful, parallel Python bindings to gix::Repository"
+readme = "README.md"
+requires-python = ">=3.11"
+license = "MIT OR Apache-2.0"
+license-files = ["LICENSE-MIT", "LICENSE-APACHE"]
+authors = [{name = "Sebastian Thiel", email = "sebastian.thiel@icloud.com"}]
+classifiers = [
+    "Development Status :: 3 - Alpha",
+    "Programming Language :: Python :: 3",
+    "Programming Language :: Python :: Implementation :: CPython",
+    "Programming Language :: Rust",
+    "Topic :: Software Development :: Version Control :: Git",
+]
+
+[project.urls]
+Repository = "https://github.com/GitoxideLabs/pygix"
+Issues = "https://github.com/GitoxideLabs/pygix/issues"
+
+[tool.maturin]
+python-source = "python"
+module-name = "gix._gix"
+include = ["LICENSE-MIT", "LICENSE-APACHE", "python/gix/py.typed", "python/gix/*.pyi"]

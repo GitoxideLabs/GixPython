@@ -1,0 +1,191 @@
+name: ci
+
+on:
+  push:
+    branches: [main, 'run-ci/**', '**/run-ci/**']
+  pull_request:
+    branches: [main]
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: ci-${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: true
+
+env:
+  CARGO_TERM_COLOR: always
+  UV_NO_INDEX: '1'
+
+defaults:
+  run:
+    shell: bash
+
+jobs:
+  lint:
+    name: Rust formatting and clippy
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+      - name: Install Rust
+        run: rustup toolchain install stable --profile minimal --component rustfmt,clippy
+      - name: Cache Rust artifacts
+        uses: Swatinem/rust-cache@6323deb102c322ba6fcbdcafc7e3dddab59af2b6 # v2.9.2
+        with:
+          save-if: ${{ github.ref == 'refs/heads/main' }}
+      - name: Check formatting
+        run: cargo +stable fmt --all -- --check
+      - name: Check clippy
+        run: cargo +stable clippy --locked --all-targets -- -D warnings
+
+  test:
+    name: Python ${{ matrix.python }} on ${{ matrix.os }}
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - os: ubuntu-latest
+            python: '3.11'
+            features: abi3
+          - os: ubuntu-latest
+            python: '3.12'
+            features: abi3
+          - os: ubuntu-latest
+            python: '3.13'
+            features: abi3
+          - os: ubuntu-latest
+            python: '3.14'
+            features: abi3
+          - os: macos-latest
+            python: '3.14'
+            features: abi3
+          - os: windows-latest
+            python: '3.14'
+            features: abi3
+          - os: ubuntu-latest
+            python: '3.13t'
+            features: ''
+            gil: '0'
+          - os: ubuntu-latest
+            python: '3.14t'
+            features: ''
+            gil: '0'
+          - os: macos-latest
+            python: '3.14t'
+            features: ''
+            gil: '0'
+          - os: windows-latest
+            python: '3.14t'
+            features: ''
+            gil: '0'
+    runs-on: ${{ matrix.os }}
+    env:
+      PYTHON_VERSION: ${{ matrix.python }}
+      BUILD_FEATURES: ${{ matrix.features }}
+    steps:
+      - name: Checkout
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+      - name: Install uv
+        uses: astral-sh/setup-uv@20cfd1bf945f4377ade1205e4dbc17946fc9a30d # v10.0.1
+        with:
+          version: '0.12.13'
+          enable-cache: false
+      - name: Install Python
+        run: uv python install "$PYTHON_VERSION"
+      - name: Install Rust
+        run: rustup toolchain install stable --profile minimal
+      - name: Cache Rust artifacts
+        uses: Swatinem/rust-cache@6323deb102c322ba6fcbdcafc7e3dddab59af2b6 # v2.9.2
+        with:
+          key: python-${{ matrix.python }}
+          save-if: ${{ github.ref == 'refs/heads/main' }}
+      - name: Build extension
+        run: |
+          args=()
+          if [[ -n "$BUILD_FEATURES" ]]; then
+            args+=(--features "$BUILD_FEATURES")
+          fi
+          uv run --no-project --offline --python "$PYTHON_VERSION" python etc/build.py "${args[@]}"
+      - name: Check free-threaded runtime
+        if: matrix.gil == '0'
+        env:
+          PYTHON_GIL: '0'
+        run: uv run --no-project --offline --python "$PYTHON_VERSION" python -c 'import sys; assert not sys._is_gil_enabled()'
+      - name: Run Python integration tests
+        env:
+          PYTHONPATH: python
+          PYTHON_GIL: ${{ matrix.gil || '1' }}
+        run: uv run --no-project --offline --python "$PYTHON_VERSION" python -m unittest discover -s tests
+
+  features:
+    name: Rust ${{ matrix.rust }} / ${{ matrix.features }}
+    runs-on: ubuntu-latest
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - rust: '1.89'
+            features: max-pure
+          - rust: stable
+            features: sha1
+          - rust: stable
+            features: sha256
+          - rust: stable
+            features: sha1,sha256,revision,index
+          - rust: stable
+            features: sha1,sha256,http
+    env:
+      RUST_VERSION: ${{ matrix.rust }}
+      BUILD_FEATURES: ${{ matrix.features }}
+    steps:
+      - name: Checkout
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+      - name: Install Rust
+        run: rustup toolchain install "$RUST_VERSION" --profile minimal
+      - name: Cache Rust artifacts
+        uses: Swatinem/rust-cache@6323deb102c322ba6fcbdcafc7e3dddab59af2b6 # v2.9.2
+        with:
+          key: ${{ matrix.rust }}-${{ matrix.features }}
+          save-if: ${{ github.ref == 'refs/heads/main' }}
+      - name: Check selected configuration
+        run: cargo "+$RUST_VERSION" check --locked --no-default-features --features "$BUILD_FEATURES"
+
+  no-c:
+    name: Build without a C or C++ compiler
+    runs-on: ubuntu-latest
+    env:
+      CC: /usr/bin/false
+      CXX: /usr/bin/false
+      CARGO_TARGET_DIR: target/no-c
+    steps:
+      - name: Checkout
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+      - name: Install Rust
+        run: rustup toolchain install stable --profile minimal
+      - name: Compile default dependencies from scratch
+        run: cargo +stable build --locked
+
+  tests-pass:
+    name: Tests pass
+    if: always()
+    needs: [lint, test, features, no-c]
+    runs-on: ubuntu-latest
+    permissions: {}
+    steps:
+      - name: Require every check to pass
+        env:
+          RESULTS: ${{ join(needs.*.result, ' ') }}
+        run: |
+          for result in $RESULTS; do
+            [[ "$result" == success ]] || exit 1
+          done

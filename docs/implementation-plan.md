@@ -1,0 +1,44 @@
+# Implementation plan
+
+The steps below describe the complete intended project. They are a plan, not a claim that all bindings exist. Each step is an independently reviewable commit with relevant type information, documentation, and runnable checks. Update the status when a step is complete.
+
+| Step | Capability | Status |
+| --- | --- | --- |
+| 1 | Package/runtime foundation: GixPython distribution, `gix` import, PyO3 ABI configuration, licenses, persistent instructions, and baseline project files. | In progress |
+| 2 | Repository discovery/open/init, thread-safe handles, hash kinds/object IDs, raw objects, native configuration and isolated open options. | Planned |
+| 3 | Structured objects: blobs, trees and entries, commits, tags, object creation/editing, and native signing/verification. | Planned |
+| 4 | References and configuration: HEAD, branches, namespaces, reflogs, captured-value updates, transactions, configuration reads/edits, and identities. | Planned |
+| 5 | Revision parsing and traversal: native revision specifications, history, merge bases, descriptions, shallow state, commit graphs, and mailmaps. | Planned |
+| 6 | Index/path facilities: index reads/edits/writes, tree conversion, attributes, excludes, pathspecs, filters, directory walking, and submodule inspection. | Planned |
+| 7 | Status and diff: worktree/index/tree comparisons, native diff options, rewrite detection, hunks, statistics, and binary handling. | Planned |
+| 8 | Blame and notes: native blame options/results and notes lookup, replacement, removal, and ref selection. | Planned |
+| 9 | Merge: blobs, trees, commits, virtual merge bases, native conflict data, and resolution controls. | Planned |
+| 10 | Worktrees and exports: native worktree lifecycle, checkout, tree streams, and supported archive formats. | Planned |
+| 11 | Network operations: native remotes/refspecs, credentials, clone/fetch, reqwest/rustls with Graviola, progress, and cancellation. | Planned |
+| 12 | Distribution and coverage completion: installed-wheel/sdist checks, supported platforms/ABIs/features, complete API coverage records, examples, and artifact workflows. | Planned |
+
+## Persistent decisions
+
+- Python distribution: `GixPython`. Import: `gix`. Repository: `GitoxideLabs/pygix`.
+- Preserve existing `gix::Repository` names and semantics. Do not add invented Git convenience methods. A private converter may resolve `str`/`bytes` revspec arguments for native object-ID parameters, without implicit peeling.
+- The scope is the native engine's Git-related capabilities. Unsupported native operations are explicit limitations, not invitations to implement a Git subprocess fallback.
+- Keep native lazy operations lazy, including incremental Python result conversion and object access. Document any unavoidable eager native computation.
+- Use CPython 3.11+; stable ABI for ordinary builds; distinct compatible builds for 3.13t and 3.14t.
+- Thread safety and parallelism are foundational. Detach native work from Python and avoid a single lock serializing all repository operations.
+- Default to broad native capability groups and both SHA-1 and SHA-256. All supported builds must avoid compiling C/C++ dependencies; use pure-Rust hashing/compression and reqwest/rustls with Graviola.
+- Preserve bytes, typed errors, reference snapshots, and existing engine safety constraints. An expected old reference value must be a literal captured target.
+- Progress is pollable through `Progress.snapshot()` and cancellation uses `CancellationToken`; do not add callbacks or process-wide signal ownership.
+- License: `MIT OR Apache-2.0`; author and copyright holder: Sebastian Thiel.
+- Work locally only. No PyPI interaction, account writes, push, PR, publication, or remote release during the current task. Rust dependency downloads needed for builds are authorized.
+
+## Upstream integration
+
+Small necessary upstream changes may be prepared in the existing local `gitoxide.pygix` worktree. Its starting base was `f819565c2c`, on branch `pygix`. Inspect its current state before working; this record is not permission to reset or rewrite it.
+
+Do not commit machine-specific dependency paths. Record local overrides and upstream prerequisites explicitly. Publicly reproducible wheels and source distributions require all dependencies to be available independently of that local worktree.
+
+## Acceptance
+
+Every completed capability has a Python integration check and accurate type/documentation coverage. Checks use disposable repositories and isolated Git configuration; both hash kinds and relevant feature selections are exercised. Shared-handle concurrency, GIL-disabled execution, partial iterator consumption, interruption, stale-reference rejection, and artifact installation are project requirements.
+
+Gitoxide currently exposes commit merges even where older overview documentation says otherwise. Its push-related configuration does not itself provide native push execution. Verify capabilities against source rather than treating an old feature checklist as authoritative.

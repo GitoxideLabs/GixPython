@@ -1,0 +1,103 @@
+name: Distribution artifacts
+
+# Build reviewable candidates only. This workflow does not publish packages or releases.
+on:
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: artifacts-${{ github.ref }}
+  cancel-in-progress: false
+
+env:
+  CARGO_TERM_COLOR: always
+  UV_NO_INDEX: '1'
+
+defaults:
+  run:
+    shell: bash
+
+jobs:
+  wheels:
+    name: Wheel / ${{ matrix.os }} / ${{ matrix.python }}
+    strategy:
+      fail-fast: false
+      matrix:
+        os: [ubuntu-latest, ubuntu-24.04-arm, macos-15-intel, macos-latest, windows-latest]
+        python: ['3.11', '3.13t', '3.14t']
+    runs-on: ${{ matrix.os }}
+    env:
+      PYTHON_VERSION: ${{ matrix.python }}
+    steps:
+      - name: Checkout
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+      - name: Install uv
+        uses: astral-sh/setup-uv@20cfd1bf945f4377ade1205e4dbc17946fc9a30d # v10.0.1
+        with:
+          version: '0.12.13'
+          enable-cache: false
+      - name: Install Python
+        run: uv python install "$PYTHON_VERSION"
+      - name: Install Rust
+        run: rustup toolchain install stable --profile minimal
+      - name: Install maturin
+        uses: taiki-e/install-action@b6ff580856c41316412a0b9b60540fbc6f8c82cc # v2.86.7
+        with:
+          tool: maturin@1.15.0
+      - name: Cache Rust artifacts
+        uses: Swatinem/rust-cache@6323deb102c322ba6fcbdcafc7e3dddab59af2b6 # v2.9.2
+        with:
+          key: artifacts-${{ matrix.python }}
+          save-if: ${{ github.ref == 'refs/heads/main' }}
+      - name: Build host-platform wheel
+        run: |
+          args=()
+          if [[ "$PYTHON_VERSION" == 3.11 ]]; then
+            args+=(--features abi3)
+          fi
+          if [[ "$RUNNER_OS" == Linux ]]; then
+            args+=(--compatibility linux)
+          fi
+          interpreter="$(uv python find "$PYTHON_VERSION")"
+          maturin build --release --locked --out dist --interpreter "$interpreter" "${args[@]}"
+      - name: Install wheel without an index
+        run: |
+          uv venv --python "$PYTHON_VERSION" .artifact-venv
+          uv pip install --python .artifact-venv --no-index --no-deps dist/*.whl
+      - name: Test installed wheel
+        run: |
+          if [[ "$PYTHON_VERSION" == *t ]]; then
+            export PYTHON_GIL=0
+          fi
+          uv run --no-project --offline --python .artifact-venv python -m unittest discover -s tests
+      - name: Upload wheel candidate
+        uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7.0.1
+        with:
+          name: wheel-${{ matrix.os }}-${{ matrix.python }}
+          path: dist/*.whl
+          if-no-files-found: error
+
+  sdist:
+    name: Source distribution
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+      - name: Install maturin
+        uses: taiki-e/install-action@b6ff580856c41316412a0b9b60540fbc6f8c82cc # v2.86.7
+        with:
+          tool: maturin@1.15.0
+      - name: Build source distribution
+        run: maturin sdist --out dist
+      - name: Upload source candidate
+        uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7.0.1
+        with:
+          name: source-distribution
+          path: dist/*.tar.gz
+          if-no-files-found: error

@@ -1,0 +1,24 @@
+version: 2
+updates:
+  - package-ecosystem: cargo
+    directory: /
+    schedule:
+      interval: monthly
+    commit-message:
+      prefix: ''
+    groups:
+      cargo:
+        patterns: ['*']
+    cooldown:
+      default-days: 7
+  - package-ecosystem: github-actions
+    directory: /
+    schedule:
+      interval: monthly
+    commit-message:
+      prefix: ''
+    groups:
+      github-actions:
+        patterns: ['*']
+    cooldown:
+      default-days: 7

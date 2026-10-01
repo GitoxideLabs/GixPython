@@ -1,0 +1,15 @@
+name: Propose binding coverage
+description: Propose exposing an existing native gix capability.
+body:
+  - type: textarea
+    id: capability
+    attributes:
+      label: Native capability and use case
+      description: Link the native gix API and describe the Python use case it should support.
+    validations:
+      required: true
+  - type: textarea
+    id: behavior
+    attributes:
+      label: Proposed binding behavior
+      description: Keep native names and semantics. Describe relevant ownership, laziness, threading, or feature-selection requirements.
