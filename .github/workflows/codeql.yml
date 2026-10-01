@@ -18,6 +18,8 @@ concurrency:
 jobs:
   analyze:
     name: Analyze ${{ matrix.language }}
+    # Private code scanning requires an Advanced Security subscription.
+    if: ${{ !github.event.repository.private }}
     runs-on: ubuntu-latest
     permissions:
       contents: read

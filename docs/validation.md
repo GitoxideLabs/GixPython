@@ -68,8 +68,9 @@ not manylinux or musllinux certification.
 Free-threaded CPython 3.13 is unsupported by PyO3 0.29.3; the free-threaded
 matrix starts at CPython 3.14. Ordinary CPython 3.13 remains supported.
 
-No CI workflow was triggered, and nothing was pushed, published, or created on
-PyPI. Three necessary upstream fixes remain local and are included as vendored
+The initial implementation was validated locally before CI was activated.
+Nothing was published or created on PyPI. Three necessary upstream fixes remain
+local and are included as vendored
 source patches; their provenance is recorded in [DEVELOPMENT.md](../DEVELOPMENT.md).
 The [API coverage record](api-coverage.md) lists unsupported native overloads,
 callback interfaces, and operations unavailable in the pinned Gitoxide engine.
