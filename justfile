@@ -28,11 +28,5 @@ test-free-threaded interpreter:
 
 # Build review candidates from a complete source archive; never publish them.
 artifacts *args:
-    #!/usr/bin/env bash
-    set -euo pipefail
-    abi_args=()
-    if [[ "$({{python}} -c 'import sysconfig; print(bool(sysconfig.get_config_var("Py_GIL_DISABLED")))')" == False ]]; then
-        abi_args+=(--features abi3)
-    fi
-    maturin build --sdist --release --locked --out dist --interpreter {{python}} "${abi_args[@]}" {{args}}
+    maturin build --sdist --release --locked --out dist --interpreter {{python}} {{args}}
     {{python}} etc/check_artifact.py dist/*.tar.gz dist/*.whl

@@ -212,7 +212,7 @@ jobs:
           key: sdist
           save-if: ${{ github.ref == 'refs/heads/main' }}
       - name: Build wheel from the source archive
-        run: maturin build --sdist --locked --features abi3 --compatibility linux --out dist --interpreter "$(uv python find 3.11)"
+        run: maturin build --sdist --locked --compatibility linux --out dist --interpreter "$(uv python find 3.11)"
       - name: Verify archive and wheel contents
         run: uv run --no-project --offline --python 3.11 python etc/check_artifact.py dist/*.tar.gz dist/*.whl
       - name: Install rebuilt wheel without an index
