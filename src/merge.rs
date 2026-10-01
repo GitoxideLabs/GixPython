@@ -117,7 +117,7 @@ pub struct MergeLabels {
     other: Option<Vec<u8>>,
 }
 impl MergeLabels {
-    fn native(&self) -> gix::merge::blob::builtin_driver::text::Labels<'_> {
+    pub(crate) fn native(&self) -> gix::merge::blob::builtin_driver::text::Labels<'_> {
         gix::merge::blob::builtin_driver::text::Labels {
             ancestor: self.ancestor.as_deref().map(ByteSlice::as_bstr),
             current: self.current.as_deref().map(ByteSlice::as_bstr),
