@@ -70,6 +70,16 @@ impl RepoHandle {
         }
         work(&repo)
     }
+    fn set_cache(&self, py: Python<'_>, bytes: Option<usize>, only_if_unset: bool) -> PyResult<()> {
+        let handle = self.clone();
+        self.mutate(py, move |repo| {
+            if !only_if_unset || !repo.objects.has_object_cache() {
+                repo.object_cache_size(bytes);
+                *handle.0.cache.write().map_err(to_py)? = Some(bytes);
+            }
+            Ok(())
+        })
+    }
     pub fn run<T: Send + 'static>(
         &self,
         py: Python<'_>,
@@ -193,24 +203,19 @@ impl Repository {
         self.handle.mutate(py, move |r| r.set_workdir(workdir).map_err(to_py))
     }
     fn reload<'py>(slf: PyRef<'py, Self>, py: Python<'py>) -> PyResult<PyRef<'py, Self>> {
-        slf.handle.mutate(py, |r| r.reload().map(|_| ()).map_err(to_py))?;
-        *slf.handle.0.cache.write().map_err(to_py)? = None;
+        let handle = slf.handle.clone();
+        slf.handle.mutate(py, move |r| {
+            r.reload().map_err(to_py)?;
+            *handle.0.cache.write().map_err(to_py)? = None;
+            Ok(())
+        })?;
         Ok(slf)
     }
     fn object_cache_size(&self, py: Python<'_>, bytes: Option<usize>) -> PyResult<()> {
-        self.handle.mutate(py, move |r| {
-            r.object_cache_size(bytes);
-            Ok(())
-        })?;
-        *self.handle.0.cache.write().map_err(to_py)? = Some(bytes);
-        Ok(())
+        self.handle.set_cache(py, bytes, false)
     }
-    fn object_cache_size_if_unset(&self, bytes: usize) -> PyResult<()> {
-        let mut cache = self.handle.0.cache.write().map_err(to_py)?;
-        if cache.is_none() || matches!(*cache, Some(None | Some(0))) {
-            *cache = Some(Some(bytes));
-        }
-        Ok(())
+    fn object_cache_size_if_unset(&self, py: Python<'_>, bytes: usize) -> PyResult<()> {
+        self.handle.set_cache(py, Some(bytes), true)
     }
     fn with_object_memory(&self, py: Python<'_>) -> PyResult<Self> {
         self.handle.run(py, |r| {
@@ -373,4 +378,33 @@ pub fn register(m: &Bound<'_, PyModule>) -> PyResult<()> {
     m.add_function(wrap_pyfunction!(init, m)?)?;
     m.add_function(wrap_pyfunction!(init_bare, m)?)?;
     Ok(())
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn cache_policy_updates_persistent_memory_and_survives_operations() {
+        Python::initialize();
+        Python::attach(|py| {
+            let stamp = std::time::SystemTime::now()
+                .duration_since(std::time::UNIX_EPOCH)
+                .expect("clock")
+                .as_nanos();
+            let path = std::env::temp_dir().join(format!("pygix-cache-{}-{stamp}", std::process::id()));
+            let repo = Repository::from_native(gix::init_bare(&path).expect("temporary repository"));
+            let memory = repo.with_object_memory(py).expect("memory view");
+            for view in [&repo, &memory] {
+                view.object_cache_size(py, None).expect("disable");
+                assert!(!view.handle.with(|r| Ok(r.objects.has_object_cache())).expect("query"));
+                view.object_cache_size_if_unset(py, 4096).expect("enable");
+                assert!(view.handle.with(|r| Ok(r.objects.has_object_cache())).expect("query"));
+                view.object_cache_size_if_unset(py, 0).expect("retain existing");
+                assert!(view.handle.with(|r| Ok(r.objects.has_object_cache())).expect("query"));
+            }
+            drop((repo, memory));
+            std::fs::remove_dir_all(path).expect("cleanup");
+        });
+    }
 }
