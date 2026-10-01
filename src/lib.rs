@@ -2,6 +2,7 @@
 
 use pyo3::prelude::*;
 
+mod config;
 mod error;
 mod objects;
 mod references;
@@ -50,6 +51,7 @@ fn build_features() -> Vec<&'static str> {
 
 #[pymodule(gil_used = false)]
 fn _gix(m: &Bound<'_, PyModule>) -> PyResult<()> {
+    config::register(m)?;
     types::register(m)?;
     repository::register(m)?;
     objects::register(m)?;

@@ -15,6 +15,10 @@ from ._references import (
     ReflogIterPlatform as ReflogIterPlatform, ReflogLine as ReflogLine, ReflogIter as ReflogIter,
     _RepositoryReferences,
 )
+from ._config import (
+    ConfigFile as ConfigFile, ConfigSnapshot as ConfigSnapshot, ConfigSnapshotMut as ConfigSnapshotMut,
+    ConfigRollback as ConfigRollback, ConfigFileTransaction as ConfigFileTransaction, _RepositoryConfig,
+)
 
 _Path = str | bytes | PathLike[str] | PathLike[bytes]
 
@@ -59,7 +63,7 @@ class OpenOptions:
     def lossy_config(self, enable: bool) -> Self: ...
     def open(self, path: _Path) -> Repository: ...
 
-class Repository(_ObjectRepository, _RepositoryReferences):
+class Repository(_ObjectRepository, _RepositoryReferences, _RepositoryConfig):
     def git_dir(self) -> str: ...
     def path(self) -> str: ...
     def common_dir(self) -> str: ...
