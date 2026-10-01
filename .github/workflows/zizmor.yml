@@ -15,11 +15,12 @@ concurrency:
 
 jobs:
   zizmor:
+    name: Audit GitHub Actions
     runs-on: ubuntu-latest
     permissions:
-      contents: read
-      actions: read
-      security-events: write
+      contents: read # Inspect the checked-out workflow files.
+      actions: read # Inspect referenced actions during online audits.
+      security-events: write # Upload findings when public code scanning is available.
     steps:
       - name: Checkout
         uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1

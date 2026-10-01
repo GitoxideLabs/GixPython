@@ -22,8 +22,8 @@ jobs:
     if: ${{ !github.event.repository.private }}
     runs-on: ubuntu-latest
     permissions:
-      contents: read
-      security-events: write
+      contents: read # Check out the source for analysis.
+      security-events: write # Upload CodeQL findings to code scanning.
     strategy:
       fail-fast: false
       matrix:
