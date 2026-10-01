@@ -7,6 +7,8 @@ mod error;
 mod objects;
 mod references;
 mod repository;
+#[cfg(feature = "revision")]
+mod revision;
 mod runtime;
 mod types;
 
@@ -53,6 +55,8 @@ fn build_features() -> Vec<&'static str> {
 fn _gix(m: &Bound<'_, PyModule>) -> PyResult<()> {
     config::register(m)?;
     types::register(m)?;
+    #[cfg(feature = "revision")]
+    revision::register(m)?;
     repository::register(m)?;
     objects::register(m)?;
     references::register(m)?;

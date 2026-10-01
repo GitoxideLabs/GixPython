@@ -19,6 +19,10 @@ from ._config import (
     ConfigFile as ConfigFile, ConfigSnapshot as ConfigSnapshot, ConfigSnapshotMut as ConfigSnapshotMut,
     ConfigRollback as ConfigRollback, ConfigFileTransaction as ConfigFileTransaction, _RepositoryConfig,
 )
+from ._revision import (
+    RevisionSpec as RevisionSpec, RevisionWalkPlatform as RevisionWalkPlatform,
+    RevisionWalk as RevisionWalk, RevisionInfo as RevisionInfo, _RepositoryRevision,
+)
 
 _Path = str | bytes | PathLike[str] | PathLike[bytes]
 
@@ -63,7 +67,7 @@ class OpenOptions:
     def lossy_config(self, enable: bool) -> Self: ...
     def open(self, path: _Path) -> Repository: ...
 
-class Repository(_ObjectRepository, _RepositoryReferences, _RepositoryConfig):
+class Repository(_ObjectRepository, _RepositoryReferences, _RepositoryConfig, _RepositoryRevision):
     def git_dir(self) -> str: ...
     def path(self) -> str: ...
     def common_dir(self) -> str: ...
