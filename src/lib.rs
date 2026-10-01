@@ -6,6 +6,8 @@ use pyo3::prelude::*;
 mod attributes;
 #[cfg(feature = "blame")]
 mod blame;
+#[cfg(feature = "merge")]
+mod blob_merge;
 mod branch;
 mod config;
 mod config_queries;
@@ -83,6 +85,8 @@ fn build_features() -> Vec<&'static str> {
 #[pymodule(gil_used = false)]
 fn _gix(m: &Bound<'_, PyModule>) -> PyResult<()> {
     config::register(m)?;
+    #[cfg(feature = "merge")]
+    blob_merge::register(m)?;
     config_queries::register(m)?;
     #[cfg(feature = "network")]
     network::register(m)?;
