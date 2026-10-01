@@ -60,6 +60,67 @@ class ConfigurationTests(unittest.TestCase):
             self.assertEqual(repo.config_snapshot().string("user.name"), b"saved")
             self.assertFalse(Path(str(path) + ".lock").exists())
 
+    @unittest.skipUnless("revision" in gix.build_features(), "revision feature disabled")
+    def test_memory_config_destructors_survive_an_active_native_owner(self):
+        for rollback, cancel in ((False, False), (False, True), (True, False), (True, True)):
+            with self.subTest(rollback=rollback, cancel=cancel), tempfile.TemporaryDirectory() as directory:
+                options = gix.OpenOptions.isolated().config_overrides([
+                    "user.name=original", "user.email=fixture@example.invalid"
+                ])
+                repo = gix.init(directory, options=options)
+                commit = repo.commit("HEAD", "initial", repo.empty_tree())
+                memory = repo.with_object_memory()
+                transaction = memory.config_snapshot_mut()
+                transaction.set_raw_value("user.name", "temporary")
+                if rollback:
+                    transaction = transaction.commit_auto_rollback()
+                token = gix.CancellationToken()
+                walk = memory.rev_walk([commit]).all(cancel=token)
+                self.addCleanup(walk.close)
+                next(walk)
+                del transaction
+                gc.collect()
+                if cancel:
+                    token.cancel()
+                    with self.assertRaises(gix.CancelledError):
+                        next(walk)
+                else:
+                    walk.close()
+                self.assertEqual(memory.author().name, b"original" if rollback else b"temporary")
+                # A queued destructor must also release its mutation lease.
+                with memory.config_snapshot_mut() as edit:
+                    edit.set_raw_value("user.name", "next edit")
+                self.assertEqual(memory.author().name, b"next edit")
+
+    @unittest.skipUnless("revision" in gix.build_features(), "revision feature disabled")
+    def test_memory_explicit_config_updates_can_retry_after_overlap(self):
+        for operation in ("commit", "commit_auto_rollback", "rollback"):
+            with self.subTest(operation=operation), tempfile.TemporaryDirectory() as directory:
+                options = gix.OpenOptions.isolated().config_overrides([
+                    "user.name=original", "user.email=fixture@example.invalid"
+                ])
+                repo = gix.init(directory, options=options)
+                commit = repo.commit("HEAD", "initial", repo.empty_tree())
+                memory = repo.with_object_memory()
+                transaction = memory.config_snapshot_mut()
+                transaction.set_raw_value("user.name", "temporary")
+                rollback = operation == "rollback"
+                if rollback:
+                    transaction = transaction.commit_auto_rollback()
+                walk = memory.rev_walk([commit]).all()
+                self.addCleanup(walk.close)
+                next(walk)
+                apply = getattr(transaction, operation)
+                with self.assertRaises(RuntimeError):
+                    apply()
+                walk.close()
+                self.assertEqual(memory.author().name, b"temporary" if rollback else b"original")
+                result = apply()
+                self.assertEqual(memory.author().name, b"original" if rollback else b"temporary")
+                if operation == "commit_auto_rollback":
+                    result.rollback()
+                    self.assertEqual(memory.author().name, b"original")
+
 
 if __name__ == "__main__":
     unittest.main()

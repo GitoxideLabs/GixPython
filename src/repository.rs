@@ -19,6 +19,7 @@ struct State {
     in_memory: bool,
     sync: RwLock<gix::ThreadSafeRepository>,
     memory: Mutex<Option<gix::Repository>>,
+    pending_config: Mutex<Option<gix::config::File>>,
     cache: RwLock<Option<Option<usize>>>,
     mutation: AtomicBool,
 }
@@ -38,6 +39,24 @@ impl MutationLease {
     pub fn apply<T>(&self, work: impl FnOnce(&mut gix::Repository) -> PyResult<T>) -> PyResult<T> {
         self.handle.with_mut_unchecked(work)
     }
+
+    pub(crate) fn apply_config_on_drop(&self, file: gix::config::File) {
+        if self.handle.0.in_memory {
+            // Queue before releasing the lease. A parked native iterator may own
+            // memory until Python closes it, so destructors must never wait on it.
+            *self.handle.0.pending_config.lock().unwrap_or_else(|e| e.into_inner()) = Some(file);
+            if let Ok(mut memory) = self.handle.0.memory.try_lock()
+                && let Some(repo) = memory.as_mut()
+            {
+                self.handle.apply_pending_config(repo);
+            }
+        } else {
+            let _ = self.apply(|repo| {
+                *repo.config_snapshot_mut() = file;
+                Ok(())
+            });
+        }
+    }
 }
 
 impl RepoHandle {
@@ -46,22 +65,26 @@ impl RepoHandle {
             in_memory: false,
             sync: RwLock::new(repo.into_sync()),
             memory: Mutex::new(None),
+            pending_config: Mutex::new(None),
             cache: RwLock::new(None),
             mutation: AtomicBool::new(false),
         }))
     }
     pub fn with<T>(&self, work: impl FnOnce(&gix::Repository) -> PyResult<T>) -> PyResult<T> {
         if self.0.in_memory {
-            let memory = self
+            let mut memory = self
                 .0
                 .memory
                 .try_lock()
                 .map_err(|_| PyRuntimeError::new_err("in-memory repository is already in use"))?;
             let repo = memory
-                .as_ref()
+                .as_mut()
                 .ok_or_else(|| PyRuntimeError::new_err("in-memory repository is unavailable"))?;
             // ponytail: native in-memory object state is local; only these opt-in handles serialize operations.
-            return work(repo);
+            self.apply_pending_config(repo);
+            let result = work(repo);
+            self.apply_pending_config(repo);
+            return result;
         }
         let sync = self.0.sync.read().map_err(to_py)?.clone();
         let mut repo = sync.to_thread_local();
@@ -120,7 +143,10 @@ impl RepoHandle {
             let repo = memory
                 .as_mut()
                 .ok_or_else(|| PyRuntimeError::new_err("in-memory repository is unavailable"))?;
-            return work(repo);
+            self.apply_pending_config(repo);
+            let result = work(repo);
+            self.apply_pending_config(repo);
+            return result;
         }
         let mut repo = self.0.sync.read().map_err(to_py)?.to_thread_local();
         if let Some(cache) = *self.0.cache.read().map_err(to_py)? {
@@ -129,6 +155,16 @@ impl RepoHandle {
         let result = work(&mut repo);
         *self.0.sync.write().map_err(to_py)? = repo.into_sync();
         result
+    }
+
+    fn apply_pending_config(&self, repo: &mut gix::Repository) {
+        // Take under the queue lock, then release it before touching native state.
+        // A new transaction cannot start until its native read drains this slot.
+        let pending = self.0.pending_config.lock().unwrap_or_else(|e| e.into_inner()).take();
+        if let Some(file) = pending {
+            // Native snapshot destructors likewise ignore config validation errors.
+            *repo.config_snapshot_mut() = file;
+        }
     }
 }
 
@@ -226,6 +262,7 @@ impl Repository {
                     in_memory: true,
                     sync: RwLock::new(sync),
                     memory: Mutex::new(Some(memory)),
+                    pending_config: Mutex::new(None),
                     cache: RwLock::new(None),
                     mutation: AtomicBool::new(false),
                 })),
@@ -393,7 +430,16 @@ mod tests {
                 .expect("clock")
                 .as_nanos();
             let path = std::env::temp_dir().join(format!("pygix-cache-{}-{stamp}", std::process::id()));
-            let repo = Repository::from_native(gix::init_bare(&path).expect("temporary repository"));
+            let repo = Repository::from_native(
+                gix::ThreadSafeRepository::init_opts(
+                    &path,
+                    gix::create::Kind::Bare,
+                    Default::default(),
+                    gix::open::Options::isolated(),
+                )
+                .expect("temporary repository")
+                .to_thread_local(),
+            );
             let memory = repo.with_object_memory(py).expect("memory view");
             for view in [&repo, &memory] {
                 view.object_cache_size(py, None).expect("disable");

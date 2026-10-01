@@ -1,4 +1,7 @@
-use std::{path::PathBuf, sync::Mutex};
+use std::{
+    path::PathBuf,
+    sync::{Arc, Mutex},
+};
 
 use gix::bstr::ByteSlice;
 use pyo3::{exceptions::PyValueError, prelude::*, types::PyBytes};
@@ -110,20 +113,42 @@ struct Edit {
     file: gix::config::File,
 }
 impl Edit {
-    fn apply(self) -> PyResult<Repository> {
+    fn apply(&self) -> PyResult<Repository> {
         let handle = self.lease.handle.clone();
         self.lease.apply(|repo| {
             let mut snapshot = repo.config_snapshot_mut();
-            *snapshot = self.file;
+            *snapshot = self.file.clone();
             snapshot.commit().map(|_| ()).map_err(to_py)
         })?;
         Ok(Repository { handle })
     }
 }
 
+// Shared with workers so a signal before worker startup cannot consume the edit.
+struct EditSlot(Mutex<Option<Edit>>);
+impl EditSlot {
+    fn new(edit: Edit) -> Arc<Self> {
+        Arc::new(Self(Mutex::new(Some(edit))))
+    }
+
+    fn apply(&self) -> PyResult<Repository> {
+        let mut edit = self.0.lock().map_err(to_py)?;
+        let repo = edit.as_ref().ok_or_else(closed)?.apply()?;
+        edit.take();
+        Ok(repo)
+    }
+}
+impl Drop for EditSlot {
+    fn drop(&mut self) {
+        if let Some(edit) = self.0.get_mut().unwrap_or_else(|e| e.into_inner()).take() {
+            edit.lease.apply_config_on_drop(edit.file);
+        }
+    }
+}
+
 #[pyclass(frozen, module = "gix")]
 pub struct ConfigSnapshotMut {
-    inner: Mutex<Option<Edit>>,
+    inner: Arc<EditSlot>,
 }
 #[pymethods]
 impl ConfigSnapshotMut {
@@ -131,7 +156,7 @@ impl ConfigSnapshotMut {
     fn append_config(&self, values: &Bound<'_, PyAny>, source: &str) -> PyResult<()> {
         let values: Vec<_> = values.try_iter()?.map(|v| bytes(&v?)).collect::<PyResult<_>>()?;
         let source = source_kind(source)?;
-        let mut edit = self.inner.lock().map_err(to_py)?;
+        let mut edit = self.inner.0.lock().map_err(to_py)?;
         let edit = edit.as_mut().ok_or_else(closed)?;
         // Native append_config keeps source metadata and override parsing rules.
         edit.lease.apply(|repo| {
@@ -153,7 +178,7 @@ impl ConfigSnapshotMut {
     ) -> PyResult<Option<Bound<'py, PyBytes>>> {
         let value = bytes(value)?;
         let previous = {
-            let mut edit = self.inner.lock().map_err(to_py)?;
+            let mut edit = self.inner.0.lock().map_err(to_py)?;
             edit.as_mut()
                 .ok_or_else(closed)?
                 .file
@@ -164,34 +189,37 @@ impl ConfigSnapshotMut {
     }
     fn string<'py>(&self, py: Python<'py>, key: &str) -> PyResult<Option<Bound<'py, PyBytes>>> {
         let value = {
-            let edit = self.inner.lock().map_err(to_py)?;
+            let edit = self.inner.0.lock().map_err(to_py)?;
             edit.as_ref().ok_or_else(closed)?.file.string(key)
         };
         Ok(value.map(|v| PyBytes::new(py, &v)))
     }
     fn commit(&self, py: Python<'_>) -> PyResult<Repository> {
-        let edit = self.inner.lock().map_err(to_py)?.take().ok_or_else(closed)?;
-        runtime::run(py, "configuration commit", None, None, move |_| edit.apply())?
+        let inner = self.inner.clone();
+        runtime::run(py, "configuration commit", None, None, move |_| inner.apply())?
     }
     fn forget(&self) -> PyResult<ConfigFile> {
-        let edit = self.inner.lock().map_err(to_py)?.take().ok_or_else(closed)?;
+        let edit = self.inner.0.lock().map_err(to_py)?.take().ok_or_else(closed)?;
         Ok(ConfigFile::from_native(edit.file))
     }
     fn commit_auto_rollback(&self, py: Python<'_>) -> PyResult<ConfigRollback> {
-        let edit = self.inner.lock().map_err(to_py)?.take().ok_or_else(closed)?;
+        let inner = self.inner.clone();
         runtime::run(py, "temporary configuration", None, None, move |_| {
+            let mut slot = inner.0.lock().map_err(to_py)?;
+            let edit = slot.as_ref().ok_or_else(closed)?;
             let previous = edit.lease.apply(|repo| {
                 let previous = repo.config_snapshot().plumbing().clone();
                 let mut snapshot = repo.config_snapshot_mut();
-                *snapshot = edit.file;
+                *snapshot = edit.file.clone();
                 snapshot.commit().map_err(to_py)?;
                 Ok(previous)
             })?;
+            let edit = slot.take().ok_or_else(closed)?;
             Ok::<_, PyErr>(ConfigRollback {
-                inner: Mutex::new(Some(Edit {
+                inner: EditSlot::new(Edit {
                     lease: edit.lease,
                     file: previous,
-                })),
+                }),
             })
         })?
     }
@@ -205,23 +233,15 @@ impl ConfigSnapshotMut {
         _value: &Bound<'_, PyAny>,
         _tb: &Bound<'_, PyAny>,
     ) -> PyResult<()> {
-        if self.inner.lock().map_err(to_py)?.is_some() {
+        if self.inner.0.lock().map_err(to_py)?.is_some() {
             self.commit(py)?;
         }
         Ok(())
     }
 }
-impl Drop for ConfigSnapshotMut {
-    fn drop(&mut self) {
-        if let Some(edit) = self.inner.get_mut().unwrap_or_else(|e| e.into_inner()).take() {
-            let _ = edit.apply();
-        }
-    }
-}
-
 #[pyclass(frozen, module = "gix")]
 pub struct ConfigRollback {
-    inner: Mutex<Option<Edit>>,
+    inner: Arc<EditSlot>,
 }
 #[pymethods]
 impl ConfigRollback {
@@ -230,6 +250,7 @@ impl ConfigRollback {
         Ok(Repository {
             handle: self
                 .inner
+                .0
                 .lock()
                 .map_err(to_py)?
                 .as_ref()
@@ -240,8 +261,8 @@ impl ConfigRollback {
         })
     }
     fn rollback(&self, py: Python<'_>) -> PyResult<Repository> {
-        let edit = self.inner.lock().map_err(to_py)?.take().ok_or_else(closed)?;
-        runtime::run(py, "configuration rollback", None, None, move |_| edit.apply())?
+        let inner = self.inner.clone();
+        runtime::run(py, "configuration rollback", None, None, move |_| inner.apply())?
     }
     fn __enter__(slf: PyRef<'_, Self>) -> PyRef<'_, Self> {
         slf
@@ -253,20 +274,12 @@ impl ConfigRollback {
         _value: &Bound<'_, PyAny>,
         _tb: &Bound<'_, PyAny>,
     ) -> PyResult<()> {
-        if self.inner.lock().map_err(to_py)?.is_some() {
+        if self.inner.0.lock().map_err(to_py)?.is_some() {
             self.rollback(py)?;
         }
         Ok(())
     }
 }
-impl Drop for ConfigRollback {
-    fn drop(&mut self) {
-        if let Some(edit) = self.inner.get_mut().unwrap_or_else(|e| e.into_inner()).take() {
-            let _ = edit.apply();
-        }
-    }
-}
-
 #[pyclass(frozen, module = "gix")]
 pub struct ConfigFileTransaction {
     inner: Mutex<Option<gix::config::FileTransaction>>,
@@ -345,7 +358,7 @@ impl Repository {
         runtime::run(py, "configuration snapshot", None, None, move |_| {
             let file = lease.handle.with(|r| Ok(r.config_snapshot().plumbing().clone()))?;
             Ok::<_, PyErr>(ConfigSnapshotMut {
-                inner: Mutex::new(Some(Edit { lease, file })),
+                inner: EditSlot::new(Edit { lease, file }),
             })
         })?
     }
