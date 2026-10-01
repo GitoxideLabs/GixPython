@@ -1,0 +1,32 @@
+name: Report undesirable behavior
+description: Report a reproducible problem in GixPython.
+body:
+  - type: markdown
+    attributes:
+      value: Please use the security policy for sensitive vulnerability reports.
+  - type: textarea
+    id: behavior
+    attributes:
+      label: Current and expected behavior
+      description: Describe what happened and what you expected. Include the complete exception when relevant.
+    validations:
+      required: true
+  - type: textarea
+    id: git_behavior
+    attributes:
+      label: Native Git or gix behavior
+      description: If applicable, describe the equivalent operation and its result in Git or native gix.
+  - type: textarea
+    id: reproduction
+    attributes:
+      label: Steps to reproduce
+      description: Provide a small Python example and instructions to create a disposable test repository.
+    validations:
+      required: true
+  - type: textarea
+    id: environment
+    attributes:
+      label: Environment
+      description: Include the GixPython version or commit, Python version, operating system/architecture, selected build features, repository hash kind, and whether the GIL is enabled.
+    validations:
+      required: true
