@@ -471,8 +471,8 @@ impl Reference {
 #[pyclass(module = "gix", from_py_object)]
 #[derive(Clone)]
 pub struct Head {
-    handle: RepoHandle,
-    inner: gix::head::Kind,
+    pub(crate) handle: RepoHandle,
+    pub(crate) inner: gix::head::Kind,
 }
 
 impl Head {

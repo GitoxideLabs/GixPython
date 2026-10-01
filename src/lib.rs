@@ -6,6 +6,7 @@ use pyo3::prelude::*;
 mod attributes;
 #[cfg(feature = "blame")]
 mod blame;
+mod branch;
 mod config;
 mod config_queries;
 #[cfg(feature = "blob-diff")]
