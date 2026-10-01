@@ -15,7 +15,7 @@ The steps below describe the complete intended project. The implementation is sp
 | 9 | Merge: blobs, trees, commits, virtual merge bases, native conflict data, and resolution controls. | Implemented |
 | 10 | Worktrees and exports: native worktree lifecycle, checkout, tree streams, and supported archive formats. | Implemented |
 | 11 | Network operations: native remotes/refspecs, credentials, clone/fetch, reqwest/rustls with Graviola, progress, and cancellation. | Implemented |
-| 12 | Distribution and coverage completion: installed-wheel/sdist checks, supported platforms/ABIs/features, complete API coverage records, examples, and artifact workflows. | Implemented; final artifact checks running |
+| 12 | Distribution and coverage completion: installed-wheel/sdist checks, supported platforms/ABIs/features, complete API coverage records, examples, and artifact workflows. | Implemented and locally validated; platform CI configured |
 
 ## Persistent decisions
 
@@ -58,7 +58,13 @@ The substantive steps are committed separately. Follow-up fixes retain their own
 | Attributes, pathspecs, walking, and filters | `b97c141` |
 | Worktrees, archives, and submodules | `9524e67` |
 | Network operations and branch relationships | `cd1d7f9`, `e06f76f` |
-| Source archives, wheel verification, and CI | `a803637` |
+| Source archives, wheel verification, and CI | `a803637`, `2ef7831` |
 | Vendored upstream prerequisites | `63be99c`, `1a6a779` |
 
 `git log --reverse --oneline` includes the focused concurrency, cache, protocol, lifecycle, and documentation follow-ups.
+
+Final lifecycle fixes include clone destination preservation (`33213d4`) and
+configuration destruction/retry while an in-memory native owner is active
+(`e33597f`). The [validation record](validation.md) lists the passing release
+wheel, free-threaded, hash-selection, Rust, and no-C builds, and distinguishes
+local evidence from platform checks configured for CI.

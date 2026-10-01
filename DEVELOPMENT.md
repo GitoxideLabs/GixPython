@@ -24,6 +24,9 @@ The corresponding local upstream commits are in the prepared `gitoxide.pygix` ch
 
 ## Validation
 
+See the [local validation record](docs/validation.md) for tested interpreters,
+artifacts, feature selections, and the limits of the checks performed.
+
 The local builder uses Cargo and the selected interpreter directly; it does not query a Python package index:
 
 ```sh
@@ -57,7 +60,7 @@ The artifact workflow builds distribution candidates for review. It does not upl
 
 ## Feature selections
 
-`max-pure` is the default aggregate. The independently selectable groups are declared in `Cargo.toml`; dependent features enable their required native capabilities automatically. Parallelism is unconditional. Select at least one of `sha1` and `sha256`. `signing` enables native signing configuration and execution without requiring network support. `http` adds the blocking HTTP transport, and `https` adds the pure Rust TLS provider. `abi3` selects the stable ABI for ordinary CPython and is omitted for free-threaded wheels.
+`max-pure` is the default aggregate. The independently selectable groups are declared in `Cargo.toml`; dependent features enable their required native capabilities automatically. Parallelism is unconditional. Select at least one of `sha1` and `sha256`. `signing` enables native signing configuration and execution without requiring network support. `http` adds the blocking HTTP transport, and `https` adds the pure Rust TLS provider. The maturin configuration enables `abi3` by default for ordinary CPython. PyO3 ignores that feature on free-threaded interpreters and builds their version-specific ABI instead.
 
 ```sh
 python3 etc/build.py --no-default-features --features sha1
@@ -72,7 +75,7 @@ The last command performs a fresh build with C and C++ compilation disabled; it 
 With maturin installed, these commands create local candidates without a Python index:
 
 ```sh
-maturin build --locked --release --features abi3 --out dist --interpreter python3
+maturin build --locked --release --out dist --interpreter python3
 maturin build --locked --release --out dist --interpreter /path/to/python3.14t
 maturin sdist --out dist
 ```
