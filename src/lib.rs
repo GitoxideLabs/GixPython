@@ -3,13 +3,21 @@
 use pyo3::prelude::*;
 
 mod config;
+#[cfg(feature = "blob-diff")]
+mod diff;
+#[cfg(feature = "blob-diff")]
+mod diff_options;
 mod error;
+#[cfg(feature = "index")]
+mod index;
 mod objects;
 mod references;
 mod repository;
 #[cfg(feature = "revision")]
 mod revision;
 mod runtime;
+#[cfg(feature = "status")]
+mod status;
 mod types;
 
 const GIX_REVISION: &str = "f819565c2c4c56619c4888acef6cf3b8144cbccb";
@@ -54,6 +62,14 @@ fn build_features() -> Vec<&'static str> {
 #[pymodule(gil_used = false)]
 fn _gix(m: &Bound<'_, PyModule>) -> PyResult<()> {
     config::register(m)?;
+    #[cfg(feature = "status")]
+    status::register(m)?;
+    #[cfg(feature = "blob-diff")]
+    diff::register(m)?;
+    #[cfg(feature = "blob-diff")]
+    diff_options::register(m)?;
+    #[cfg(feature = "index")]
+    index::register(m)?;
     types::register(m)?;
     #[cfg(feature = "revision")]
     revision::register(m)?;

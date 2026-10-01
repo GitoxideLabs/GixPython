@@ -1,3 +1,15 @@
+from ._status import (
+    SubmoduleStatus as SubmoduleStatus, StatusItem as StatusItem, StatusPlatform as StatusPlatform, StatusIter as StatusIter, StatusOutcome as StatusOutcome, StatusRepository as _StatusRepository
+)
+from ._diff import (
+    DiffOptions as DiffOptions, DiffLineStats as DiffLineStats, DiffStats as DiffStats, TreeChange as TreeChange, DiffResourceCache as DiffResourceCache, DiffResource as DiffResource, PreparedDiff as PreparedDiff, DiffHunk as DiffHunk, DiffHunks as DiffHunks, BlobDiff as BlobDiff, TreeDiff as TreeDiff, TreeChanges as TreeChanges, DiffRepository as _DiffRepository
+)
+from ._diff_options import (
+    Rewrites as Rewrites
+)
+from ._index import (
+    IndexStat as IndexStat, IndexEntry as IndexEntry, IndexEntryMut as IndexEntryMut, IndexEntries as IndexEntries, IndexFile as IndexFile, IndexRepository as _IndexRepository
+)
 from os import PathLike
 from typing import ClassVar, Self
 from ._runtime import CancellationToken as CancellationToken, Progress as Progress
@@ -67,7 +79,7 @@ class OpenOptions:
     def lossy_config(self, enable: bool) -> Self: ...
     def open(self, path: _Path) -> Repository: ...
 
-class Repository(_ObjectRepository, _RepositoryReferences, _RepositoryConfig, _RepositoryRevision):
+class Repository(_StatusRepository, _DiffRepository, _IndexRepository, _ObjectRepository, _RepositoryReferences, _RepositoryConfig, _RepositoryRevision):
     def git_dir(self) -> str: ...
     def path(self) -> str: ...
     def common_dir(self) -> str: ...
