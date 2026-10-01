@@ -3,6 +3,7 @@
 use pyo3::prelude::*;
 
 mod error;
+mod runtime;
 
 const GIX_REVISION: &str = "f819565c2c4c56619c4888acef6cf3b8144cbccb";
 
@@ -45,6 +46,9 @@ fn build_features() -> Vec<&'static str> {
 
 #[pymodule(gil_used = false)]
 fn _gix(m: &Bound<'_, PyModule>) -> PyResult<()> {
+    m.add_class::<runtime::Progress>()?;
+    m.add_class::<runtime::CancellationToken>()?;
+    m.add("CancelledError", m.py().get_type::<runtime::CancelledError>())?;
     m.add("__version__", env!("CARGO_PKG_VERSION"))?;
     m.add("__gix_revision__", GIX_REVISION)?;
     m.add("Error", m.py().get_type::<error::Error>())?;
