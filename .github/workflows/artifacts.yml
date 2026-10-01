@@ -64,6 +64,8 @@ jobs:
           fi
           interpreter="$(uv python find "$PYTHON_VERSION")"
           maturin build --release --locked --out dist --interpreter "$interpreter" "${args[@]}"
+      - name: Verify wheel contents
+        run: uv run --no-project --offline --python "$PYTHON_VERSION" python etc/check_artifact.py dist/*.whl
       - name: Install wheel without an index
         run: |
           uv venv --python "$PYTHON_VERSION" .artifact-venv
@@ -93,8 +95,12 @@ jobs:
         uses: taiki-e/install-action@b6ff580856c41316412a0b9b60540fbc6f8c82cc # v2.86.7
         with:
           tool: maturin@1.15.0
+      - name: Install Rust
+        run: rustup toolchain install stable --profile minimal
       - name: Build source distribution
         run: maturin sdist --out dist
+      - name: Verify source contents
+        run: python3 etc/check_artifact.py dist/*.tar.gz
       - name: Upload source candidate
         uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7.0.1
         with:
