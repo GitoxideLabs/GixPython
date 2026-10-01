@@ -256,11 +256,12 @@ impl Pathspec {
         };
         Ok(Some(PathspecEntries {
             inner: OwnedIter::new("pathspec entries", progress, cancel, move |_, producer| {
-                producer.serve(index.entries()[range].iter().filter_map(|entry| {
-                    pathspec
-                        .is_included(entry.path(&index), Some(false))
-                        .then(|| Ok(IndexEntry::from_native(entry, &index)))
-                }))
+                producer.serve(
+                    index.entries()[range]
+                        .iter()
+                        .filter(|entry| pathspec.is_included(entry.path(&index), Some(false)))
+                        .map(|entry| Ok(IndexEntry::from_native(entry, &index))),
+                )
             }),
         }))
     }

@@ -178,7 +178,21 @@ impl ProgressLease {
 /// Native work receives only Rust data. The interrupt flag belongs to this operation,
 /// not to the user's token (some upstream iterator destructors modify their flag).
 pub struct OperationContext {
+    #[cfg_attr(
+        not(any(
+            feature = "revision",
+            feature = "network",
+            feature = "status",
+            feature = "worktree-stream",
+            feature = "worktree-mutation"
+        )),
+        allow(dead_code, reason = "No native progress consumer in this feature selection")
+    )]
     pub progress: tree::Item,
+    #[cfg_attr(
+        not(any(test, feature = "revision", feature = "attributes")),
+        allow(dead_code, reason = "No native interrupt consumer in this feature selection")
+    )]
     pub interrupt: Arc<AtomicBool>,
 }
 
@@ -537,6 +551,7 @@ pub struct CommandOwner<C, R> {
 }
 
 impl<C: Send + 'static, R: Send + 'static> CommandOwner<C, R> {
+    #[cfg(any(feature = "notes", feature = "attributes", feature = "revision"))]
     pub fn new(
         name: &'static str,
         factory: impl FnOnce(OperationContext, Arc<Mutex<Option<C>>>, IterProducer<PyResult<R>, PyErr>) -> PyResult<()>
@@ -589,6 +604,7 @@ impl<C: Send + 'static, R: Send + 'static> CommandOwner<C, R> {
     pub fn close(&self, py: Python<'_>) -> PyResult<()> {
         self.inner.close(py)
     }
+    #[cfg(any(feature = "worktree-mutation", feature = "worktree-stream"))]
     pub fn finish(&self, py: Python<'_>) -> PyResult<()> {
         match self.inner.next(py)? {
             None => Ok(()),

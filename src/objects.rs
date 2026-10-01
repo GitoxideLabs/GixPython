@@ -1,5 +1,10 @@
 //! Owned Git objects and lazy views over their native encodings.
 
+#![allow(
+    clippy::wrong_self_convention,
+    reason = "Preserve native conversion names on Python-owned objects"
+)]
+
 use std::sync::Arc;
 
 use gix::bstr::ByteSlice;
@@ -972,6 +977,10 @@ impl Repository {
     }
 
     #[pyo3(signature = (name, target, target_kind, tagger, message, constraint))]
+    #[allow(
+        clippy::too_many_arguments,
+        reason = "Preserve the native tag parameters plus the Python token"
+    )]
     fn tag(
         &self,
         py: Python<'_>,

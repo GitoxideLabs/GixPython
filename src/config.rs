@@ -52,9 +52,7 @@ impl ConfigSnapshot {
     }
     fn plumbing(&self, py: Python<'_>) -> PyResult<ConfigFile> {
         self.handle.run(py, |r| {
-            Ok(ConfigFile {
-                inner: Mutex::new(r.config_snapshot().plumbing().clone()),
-            })
+            Ok(ConfigFile::from_native(r.config_snapshot().plumbing().clone()))
         })
     }
 }
@@ -64,6 +62,7 @@ pub struct ConfigFile {
     inner: Mutex<gix::config::File>,
 }
 impl ConfigFile {
+    #[cfg(feature = "attributes")]
     pub(crate) fn snapshot(&self) -> PyResult<gix::config::File> {
         Ok(self.inner.lock().map_err(to_py)?.clone())
     }
@@ -176,9 +175,7 @@ impl ConfigSnapshotMut {
     }
     fn forget(&self) -> PyResult<ConfigFile> {
         let edit = self.inner.lock().map_err(to_py)?.take().ok_or_else(closed)?;
-        Ok(ConfigFile {
-            inner: Mutex::new(edit.file),
-        })
+        Ok(ConfigFile::from_native(edit.file))
     }
     fn commit_auto_rollback(&self, py: Python<'_>) -> PyResult<ConfigRollback> {
         let edit = self.inner.lock().map_err(to_py)?.take().ok_or_else(closed)?;
