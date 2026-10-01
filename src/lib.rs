@@ -86,50 +86,47 @@ fn build_features() -> Vec<&'static str> {
 
 #[pymodule(gil_used = false)]
 fn _gix(m: &Bound<'_, PyModule>) -> PyResult<()> {
+    types::register(m)?;
+    repository::register(m)?;
+    objects::register(m)?;
     config::register(m)?;
     history::register(m)?;
-    #[cfg(feature = "merge")]
-    blob_merge::register(m)?;
     config_queries::register(m)?;
-    #[cfg(feature = "network")]
-    network::register(m)?;
     #[cfg(feature = "attributes")]
-    submodule::register(m)?;
-    worktree::register(m)?;
+    attributes::register(m)?;
     #[cfg(feature = "attributes")]
     filter::register(m)?;
     #[cfg(feature = "attributes")]
-    attributes::register(m)?;
-    #[cfg(feature = "dirwalk")]
-    dirwalk::register(m)?;
-    #[cfg(feature = "attributes")]
-    pathspec::register(m)?;
-    #[cfg(feature = "merge")]
-    merge::register(m)?;
-    #[cfg(feature = "blame")]
-    blame::register(m)?;
-    #[cfg(feature = "notes")]
-    notes::register(m)?;
-    #[cfg(feature = "status")]
-    status::register(m)?;
-    #[cfg(feature = "blob-diff")]
-    diff::register(m)?;
-    #[cfg(feature = "blob-diff")]
-    diff_options::register(m)?;
+    submodule::register(m)?;
+    references::register(m)?;
     #[cfg(feature = "index")]
     index::register(m)?;
-    types::register(m)?;
+    #[cfg(feature = "blob-diff")]
+    diff_options::register(m)?;
+    #[cfg(feature = "blob-diff")]
+    diff::register(m)?;
+    worktree::register(m)?;
+    #[cfg(feature = "attributes")]
+    pathspec::register(m)?;
+    #[cfg(feature = "dirwalk")]
+    dirwalk::register(m)?;
+    #[cfg(feature = "status")]
+    status::register(m)?;
+    #[cfg(feature = "blame")]
+    blame::register(m)?;
+    #[cfg(feature = "merge")]
+    merge::register(m)?;
+    #[cfg(feature = "merge")]
+    blob_merge::register(m)?;
+    #[cfg(feature = "notes")]
+    notes::register(m)?;
+    #[cfg(feature = "network")]
+    network::register(m)?;
     #[cfg(feature = "revision")]
     revision::register(m)?;
-    repository::register(m)?;
-    objects::register(m)?;
-    references::register(m)?;
     m.add_class::<runtime::Progress>()?;
     m.add_class::<runtime::CancellationToken>()?;
-    m.add(
-        "CancelledError",
-        m.py().get_type::<runtime::CancelledError>(),
-    )?;
+    m.add("CancelledError", m.py().get_type::<runtime::CancelledError>())?;
     m.add("__version__", env!("CARGO_PKG_VERSION"))?;
     m.add("__gix_revision__", GIX_REVISION)?;
     m.add("Error", m.py().get_type::<error::Error>())?;
