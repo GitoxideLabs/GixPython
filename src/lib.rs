@@ -20,6 +20,7 @@ mod dirwalk;
 mod error;
 #[cfg(feature = "attributes")]
 mod filter;
+mod history;
 #[cfg(feature = "index")]
 mod index;
 #[cfg(feature = "merge")]
@@ -67,6 +68,7 @@ fn build_features() -> Vec<&'static str> {
         "blame",
         "notes",
         "mailmap",
+        "signing",
         "worktree-mutation",
         "worktree-stream",
         "worktree-archive",
@@ -85,6 +87,7 @@ fn build_features() -> Vec<&'static str> {
 #[pymodule(gil_used = false)]
 fn _gix(m: &Bound<'_, PyModule>) -> PyResult<()> {
     config::register(m)?;
+    history::register(m)?;
     #[cfg(feature = "merge")]
     blob_merge::register(m)?;
     config_queries::register(m)?;
