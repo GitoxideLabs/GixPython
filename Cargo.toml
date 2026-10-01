@@ -56,6 +56,10 @@ rustls-platform-verifier = { version = "0.7.0", optional = true }
 [build-dependencies]
 pyo3-build-config = "0.29.3"
 
+[patch."https://github.com/GitoxideLabs/gitoxide"]
+gix-transport = { path = "vendor/gix-transport" }
+gix-ref = { path = "vendor/gix-ref" }
+
 [lints.rust]
 unsafe_code = "forbid"
 
