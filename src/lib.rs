@@ -32,7 +32,10 @@ mod revision;
 mod runtime;
 #[cfg(feature = "status")]
 mod status;
+#[cfg(feature = "attributes")]
+mod submodule;
 mod types;
+mod worktree;
 
 const GIX_REVISION: &str = "f819565c2c4c56619c4888acef6cf3b8144cbccb";
 
@@ -76,6 +79,9 @@ fn build_features() -> Vec<&'static str> {
 #[pymodule(gil_used = false)]
 fn _gix(m: &Bound<'_, PyModule>) -> PyResult<()> {
     config::register(m)?;
+    #[cfg(feature = "attributes")]
+    submodule::register(m)?;
+    worktree::register(m)?;
     #[cfg(feature = "attributes")]
     filter::register(m)?;
     #[cfg(feature = "attributes")]
