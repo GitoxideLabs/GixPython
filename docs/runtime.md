@@ -14,6 +14,8 @@ Native builders and borrowed values preserve their ownership boundaries. A remot
 
 `with_object_memory()` is an explicit exception to operation-local handles: Gitoxide's in-memory object state must stay on one persistent native handle. Overlapping operations on that view raise `RuntimeError`; normal disk-backed repository handles remain parallel. Objects written through the memory view remain visible to that view and are not persisted to disk.
 
+Dropping a mutable configuration snapshot commits it; dropping an automatic rollback guard restores the original configuration. If an in-memory iterator or other native owner is still active, destruction queues that change without waiting for the owner. The change is applied when the active operation finishes, including on error, or before the next operation uses that repository. Explicit commit or rollback reports overlapping use and retains the transaction so it can be retried after the owner closes. Destructor application follows the native behavior of ignoring configuration validation errors; explicit application reports them.
+
 ## Progress and interruption
 
 Pass `progress=gix.Progress()` and `cancel=gix.CancellationToken()` where supported. Another Python thread may poll or cancel them. A progress object serves one active operation at a time. `snapshot()` returns independent task/message records; modifying a snapshot does not modify the operation. States are `idle`, `running`, `succeeded`, `failed`, and `cancelled`. A lazy cursor stays idle until first consumption, succeeds at EOF, and becomes cancelled when closed early. A successfully constructed editable handle ends its construction progress scope when returned.
