@@ -33,6 +33,7 @@
 ## Current session boundary
 
 - Work locally only: no PyPI interaction, account writes, push, publication, remote release, or pull request unless the user explicitly changes this boundary. Rust dependency downloads needed to build this project are authorized.
+- The user subsequently authorized GitHub CI setup for this repository: push the committed project and CI fixes to `origin/main`, configure Actions, and verify runs on main and PRs. This does not authorize package publication or changes to the upstream Gitoxide remote.
 - Small necessary upstream changes may be prepared locally in `/Users/byron/dev/github.com/GitoxideLabs/gitoxide.pygix`. Preserve that prepared branch and unrelated changes. Inspect its applicable instructions and Tix state before changing history.
 - Earlier permission to push upstream changes or create a draft PR is superseded by the local-only instruction. If later reauthorized, use `pr-from-session`, target `origin`, disclose Codex authorship, and create a draft PR only.
 - Use available local caches when practical. Do not use a Python package index to install missing build tools; report missing prerequisites accurately.

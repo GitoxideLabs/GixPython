@@ -6,7 +6,7 @@ Use the Rust version declared in `Cargo.toml`, CPython 3.11 or newer, and the ma
 
 Git is a test reference implementation and fixture-creation tool, not a runtime implementation dependency. Tests must create disposable repositories and isolate inherited Git configuration and environment variables.
 
-The current task is local only. Rust dependency downloads needed for builds are authorized, but PyPI interaction, account writes, pushes, PRs, and publication are not. Use cached dependencies when practical. For tools whose default cache is outside the writable workspace, choose a task-owned cache under `/private/tmp` or the repository.
+GitHub CI setup is authorized for this repository, including pushing the committed project and CI fixes to `origin/main`. Package publication, PyPI interaction, and changes to the upstream Gitoxide remote remain outside the task. Use cached dependencies when practical. For tools whose default cache is outside the writable workspace, choose a task-owned cache under `/private/tmp` or the repository.
 
 ## Native upstream prerequisite
 
@@ -53,7 +53,9 @@ Keep Python type information synchronized with bindings. Distinguish byte conten
 
 ## CI and artifacts
 
-The GitHub workflows are configuration for future repository checks. They use pinned actions, minimal token permissions, and checkouts without persisted credentials. A stable `Tests pass` check collects the required CI results.
+The GitHub workflows run on pushes to `main` and pull requests targeting `main`, with manual dispatch also available. They use pinned actions, minimal token permissions, and checkouts without persisted credentials. A stable `Tests pass` check collects the required CI results.
+
+Private repositories run zizmor with workflow annotations instead of code-scanning uploads. CodeQL runs only for public repositories; enabling it here while private requires GitHub Advanced Security and an update to its job condition.
 
 The artifact workflow builds distribution candidates for review. It does not upload to PyPI, create a GitHub release, or change package/account settings. Ordinary CPython and free-threaded CPython require their respective ABI configurations. Its initial Linux wheels target the build host (`linux_*`); they are not certified manylinux or musllinux wheels. Test an installed wheel and a source-distribution build, and add the appropriate Linux compatibility environment, before describing these candidates as release-ready.
 

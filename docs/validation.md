@@ -65,8 +65,8 @@ metadata was checked against the declared Rust minimum; that does not replace
 an actual MSRV build. Initial Linux artifact candidates use host-platform tags,
 not manylinux or musllinux certification.
 
-No CI workflow was triggered, and nothing was pushed, published, or created on
-PyPI. Three necessary upstream fixes remain local and are included as vendored
+The initial implementation was validated locally before CI was activated.
+Nothing was published or created on PyPI. Three necessary upstream fixes remain local and are included as vendored
 source patches; their provenance is recorded in [DEVELOPMENT.md](../DEVELOPMENT.md).
 The [API coverage record](api-coverage.md) lists unsupported native overloads,
 callback interfaces, and operations unavailable in the pinned Gitoxide engine.

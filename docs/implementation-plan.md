@@ -31,6 +31,10 @@ The steps below describe the complete intended project. The implementation is sp
 - License: `MIT OR Apache-2.0`; author and copyright holder: Sebastian Thiel.
 - Work locally only. No PyPI interaction, account writes, push, PR, publication, or remote release during the current task. Rust dependency downloads needed for builds are authorized.
 
+After the initial implementation, the user authorized CI setup for this repository,
+including pushes to `origin/main` and verification of main/PR workflows. Package
+publication and changes to the upstream Gitoxide remote remain outside that scope.
+
 ## Upstream integration
 
 Small necessary upstream changes may be prepared in the existing local `gitoxide.pygix` worktree. Its starting base was `f819565c2c`, on branch `pygix`. Inspect its current state before working; this record is not permission to reset or rewrite it.
