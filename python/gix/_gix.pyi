@@ -1,3 +1,15 @@
+from ._filter import (
+    FileMetadata as FileMetadata, FilterDriverContext as FilterDriverContext, FilterRead as FilterRead, FilterPipeline as FilterPipeline, FilterRepository as _FilterRepository
+)
+from ._attributes import (
+    IgnoreSearch as IgnoreSearch, AttributeStack as AttributeStack, AttributePlatform as AttributePlatform, ExcludeMatch as ExcludeMatch, AttributeMatch as AttributeMatch, AttributeOutcome as AttributeOutcome, AttributeMatches as AttributeMatches, AttributeRepository as _AttributeRepository
+)
+from ._dirwalk import (
+    DirwalkOptions as DirwalkOptions, DirwalkEntry as DirwalkEntry, DirwalkItem as DirwalkItem, DirwalkStatistics as DirwalkStatistics, DirwalkOutcome as DirwalkOutcome, DirwalkIter as DirwalkIter, DirwalkRepository as _DirwalkRepository
+)
+from ._pathspec import (
+    PathspecPattern as PathspecPattern, PathspecMatch as PathspecMatch, PathspecPatterns as PathspecPatterns, PathspecEntries as PathspecEntries, PathspecSearch as PathspecSearch, Pathspec as Pathspec, PathspecDefaults as PathspecDefaults, PathspecRepository as _PathspecRepository
+)
 from ._merge import (
     TreatAsUnresolved as TreatAsUnresolved, TreeMergeOptions as TreeMergeOptions, CommitMergeOptions as CommitMergeOptions, MergeLabels as MergeLabels, MergeConflict as MergeConflict, MergeIndexEntry as MergeIndexEntry, ContentMerge as ContentMerge, TreeMergeOutcome as TreeMergeOutcome, CommitMergeOutcome as CommitMergeOutcome, VirtualMergeBase as VirtualMergeBase, _RepositoryMerge as _RepositoryMerge
 )
@@ -88,7 +100,7 @@ class OpenOptions:
     def lossy_config(self, enable: bool) -> Self: ...
     def open(self, path: _Path) -> Repository: ...
 
-class Repository(_RepositoryMerge, _RepositoryBlame, _RepositoryNotes, _StatusRepository, _DiffRepository, _IndexRepository, _ObjectRepository, _RepositoryReferences, _RepositoryConfig, _RepositoryRevision):
+class Repository(_FilterRepository, _AttributeRepository, _DirwalkRepository, _PathspecRepository, _RepositoryMerge, _RepositoryBlame, _RepositoryNotes, _StatusRepository, _DiffRepository, _IndexRepository, _ObjectRepository, _RepositoryReferences, _RepositoryConfig, _RepositoryRevision):
     def git_dir(self) -> str: ...
     def path(self) -> str: ...
     def common_dir(self) -> str: ...

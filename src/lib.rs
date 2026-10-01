@@ -2,6 +2,8 @@
 
 use pyo3::prelude::*;
 
+#[cfg(feature = "attributes")]
+mod attributes;
 #[cfg(feature = "blame")]
 mod blame;
 mod config;
@@ -9,7 +11,11 @@ mod config;
 mod diff;
 #[cfg(feature = "blob-diff")]
 mod diff_options;
+#[cfg(feature = "dirwalk")]
+mod dirwalk;
 mod error;
+#[cfg(feature = "attributes")]
+mod filter;
 #[cfg(feature = "index")]
 mod index;
 #[cfg(feature = "merge")]
@@ -17,6 +23,8 @@ mod merge;
 #[cfg(feature = "notes")]
 mod notes;
 mod objects;
+#[cfg(feature = "attributes")]
+mod pathspec;
 mod references;
 mod repository;
 #[cfg(feature = "revision")]
@@ -68,6 +76,14 @@ fn build_features() -> Vec<&'static str> {
 #[pymodule(gil_used = false)]
 fn _gix(m: &Bound<'_, PyModule>) -> PyResult<()> {
     config::register(m)?;
+    #[cfg(feature = "attributes")]
+    filter::register(m)?;
+    #[cfg(feature = "attributes")]
+    attributes::register(m)?;
+    #[cfg(feature = "dirwalk")]
+    dirwalk::register(m)?;
+    #[cfg(feature = "attributes")]
+    pathspec::register(m)?;
     #[cfg(feature = "merge")]
     merge::register(m)?;
     #[cfg(feature = "blame")]
