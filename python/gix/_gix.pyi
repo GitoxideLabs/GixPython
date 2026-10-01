@@ -1,3 +1,9 @@
+from ._submodule import (
+    SubmoduleIgnore as SubmoduleIgnore, SubmoduleFetchRecurse as SubmoduleFetchRecurse, SubmoduleUpdate as SubmoduleUpdate, SubmoduleBranch as SubmoduleBranch, SubmoduleState as SubmoduleState, ModulesFile as ModulesFile, SubmoduleNames as SubmoduleNames, Submodule as Submodule, SubmoduleIter as SubmoduleIter, _RepositorySubmodule as _RepositorySubmodule
+)
+from ._worktree import (
+    Worktree as Worktree, WorktreeProxy as WorktreeProxy, WorktreeRepositoryIter as WorktreeRepositoryIter, WorktreeHead as WorktreeHead, WorktreeRemoveForce as WorktreeRemoveForce, WorktreeRemoveOptions as WorktreeRemoveOptions, WorktreeRemoveTarget as WorktreeRemoveTarget, CheckoutOutcome as CheckoutOutcome, StreamSource as StreamSource, AdditionalEntry as AdditionalEntry, WorktreeStream as WorktreeStream, WorktreeStreamEntry as WorktreeStreamEntry, ArchiveOptions as ArchiveOptions, _RepositoryWorktree as _RepositoryWorktree
+)
 from ._filter import (
     FileMetadata as FileMetadata, FilterDriverContext as FilterDriverContext, FilterRead as FilterRead, FilterPipeline as FilterPipeline, FilterRepository as _FilterRepository
 )
@@ -100,7 +106,7 @@ class OpenOptions:
     def lossy_config(self, enable: bool) -> Self: ...
     def open(self, path: _Path) -> Repository: ...
 
-class Repository(_FilterRepository, _AttributeRepository, _DirwalkRepository, _PathspecRepository, _RepositoryMerge, _RepositoryBlame, _RepositoryNotes, _StatusRepository, _DiffRepository, _IndexRepository, _ObjectRepository, _RepositoryReferences, _RepositoryConfig, _RepositoryRevision):
+class Repository(_RepositorySubmodule, _RepositoryWorktree, _FilterRepository, _AttributeRepository, _DirwalkRepository, _PathspecRepository, _RepositoryMerge, _RepositoryBlame, _RepositoryNotes, _StatusRepository, _DiffRepository, _IndexRepository, _ObjectRepository, _RepositoryReferences, _RepositoryConfig, _RepositoryRevision):
     def git_dir(self) -> str: ...
     def path(self) -> str: ...
     def common_dir(self) -> str: ...

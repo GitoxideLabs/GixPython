@@ -64,6 +64,9 @@ pub struct ConfigFile {
     inner: Mutex<gix::config::File>,
 }
 impl ConfigFile {
+    pub(crate) fn snapshot(&self) -> PyResult<gix::config::File> {
+        Ok(self.inner.lock().map_err(to_py)?.clone())
+    }
     pub fn from_native(file: gix::config::File) -> Self {
         Self {
             inner: Mutex::new(file),
