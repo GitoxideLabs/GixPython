@@ -210,6 +210,15 @@ class NetworkTests(unittest.TestCase):
         self.assertEqual(outcome.status, "Change")
         self.assertEqual(self.git("--git-dir", str(repo.git_dir()), "rev-parse", "HEAD").strip().decode(), self.tip)
 
+    @unittest.skipUnless("http" in gix.build_features(), "HTTP feature disabled")
+    def test_configured_http2_does_not_silently_downgrade(self):
+        with self.server() as url:
+            options = self.options.config_overrides(["http.version=HTTP/2"])
+            clone = gix.prepare_clone_bare(url, self.root / "http2", options=options)
+            with self.assertRaises(gix.Error):
+                clone.fetch_only()
+            clone.persist()
+
     @unittest.skipUnless("https" in gix.build_features(), "HTTPS feature disabled")
     def test_tls_verification_custom_ca_and_hostname(self):
         ca = Path(__file__).parent / "fixtures" / "tls" / "ca.pem"

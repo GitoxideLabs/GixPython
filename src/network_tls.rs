@@ -53,9 +53,11 @@ fn configure_builder(
     if options.no_proxy.as_deref() == Some("*") {
         builder = builder.no_proxy();
     }
-    if let Some(http::options::HttpVersion::V1_1) = options.http_version {
-        builder = builder.http1_only();
-    }
+    builder = match options.http_version {
+        Some(http::options::HttpVersion::V1_1) => builder.http1_only(),
+        Some(http::options::HttpVersion::V2) => builder.http2_prior_knowledge(),
+        None => builder,
+    };
     if options.low_speed_limit_bytes_per_second != 0 && options.low_speed_time_seconds != 0 {
         return Err(invalid("reqwest does not support Git's HTTP low-speed limit"));
     }
@@ -146,6 +148,7 @@ fn tls_config(options: &http::Options) -> gix::Result<rustls::ClientConfig> {
     let mut config = builder.with_no_client_auth();
     config.alpn_protocols = match options.http_version {
         Some(http::options::HttpVersion::V1_1) => vec![b"http/1.1".to_vec()],
+        Some(http::options::HttpVersion::V2) => vec![b"h2".to_vec()],
         _ => vec![b"h2".to_vec(), b"http/1.1".to_vec()],
     };
     Ok(config)
