@@ -12,6 +12,8 @@ mod diff_options;
 mod error;
 #[cfg(feature = "index")]
 mod index;
+#[cfg(feature = "merge")]
+mod merge;
 #[cfg(feature = "notes")]
 mod notes;
 mod objects;
@@ -66,6 +68,8 @@ fn build_features() -> Vec<&'static str> {
 #[pymodule(gil_used = false)]
 fn _gix(m: &Bound<'_, PyModule>) -> PyResult<()> {
     config::register(m)?;
+    #[cfg(feature = "merge")]
+    merge::register(m)?;
     #[cfg(feature = "blame")]
     blame::register(m)?;
     #[cfg(feature = "notes")]
