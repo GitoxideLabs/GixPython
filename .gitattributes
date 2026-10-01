@@ -8,3 +8,4 @@
 *.sh text eol=lf
 justfile text eol=lf
 LICENSE-* text eol=lf
+vendor/** linguist-vendored
