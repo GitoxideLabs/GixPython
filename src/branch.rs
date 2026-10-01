@@ -170,6 +170,10 @@ mod remotes {
 
     #[pymethods]
     impl Head {
+        #[allow(
+            clippy::wrong_self_convention,
+            reason = "Preserves the native gix method name on a Python-owned snapshot"
+        )]
         fn into_remote(&self, py: Python<'_>, direction: Direction) -> PyResult<Option<Remote>> {
             let head = self.inner.clone();
             make_remote(py, self.handle.clone(), move |repo| {

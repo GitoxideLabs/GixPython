@@ -258,6 +258,10 @@ impl DirwalkIter {
     fn close(&self, py: Python<'_>) -> PyResult<()> {
         self.inner.close(py)
     }
+    #[allow(
+        clippy::wrong_self_convention,
+        reason = "Preserves the native gix method name; the outcome is consumed through interior mutability"
+    )]
     fn into_outcome(&self, py: Python<'_>) -> PyResult<Option<DirwalkOutcome>> {
         self.inner.close(py)?;
         Ok(self

@@ -1,5 +1,6 @@
 use std::hash::{Hash, Hasher};
 
+#[cfg(feature = "revision")]
 use gix::bstr::ByteSlice;
 use pyo3::{
     exceptions::{PyTypeError, PyValueError},

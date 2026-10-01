@@ -4,10 +4,12 @@
     reason = "Preserve native names for Python-owned values"
 )]
 
+#[cfg(feature = "worktree-mutation")]
+use crate::runtime;
 use crate::{
     error::to_py,
     repository::{RepoHandle, Repository},
-    runtime::{self, CancellationToken, OwnedIter, Progress},
+    runtime::{CancellationToken, OwnedIter, Progress},
     types::bytes,
 };
 use gix::bstr::ByteSlice;

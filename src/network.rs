@@ -591,14 +591,12 @@ impl Remote {
         self.owner
             .request(py, "connect", progress.as_ref(), cancel.as_ref(), move |call| {
                 Box::new(move |remote| {
-                    let result = remote
-                        .connect(direction.inner)
-                        .map_err(to_py)
-                        .and_then(|mut connection| {
-                            #[cfg(feature = "http")]
-                            tls::configure(&mut connection).map_err(to_py)?;
-                            Ok(connection)
-                        });
+                    let result = remote.connect(direction.inner).map_err(to_py);
+                    #[cfg(feature = "http")]
+                    let result = result.and_then(|mut connection| {
+                        tls::configure(&mut connection).map_err(to_py)?;
+                        Ok(connection)
+                    });
                     match result {
                         Err(error) => call.answer(Err(error)),
                         Ok(connection) => {

@@ -1,5 +1,6 @@
 use pyo3::{exceptions::PyValueError, prelude::*};
 
+#[cfg(any(feature = "blame", feature = "merge"))]
 pub fn algorithm(name: &str) -> PyResult<gix::diff::blob::Algorithm> {
     use gix::diff::blob::Algorithm;
     match name {

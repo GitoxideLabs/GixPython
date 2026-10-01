@@ -1,6 +1,9 @@
 //! Owned reference snapshots, native reference transactions, and lazy cursors.
 
-#![allow(clippy::wrong_self_convention, reason = "Preserve native API names without consuming Python objects")]
+#![allow(
+    clippy::wrong_self_convention,
+    reason = "Preserve native API names without consuming Python objects"
+)]
 
 use std::sync::{
     Arc,
@@ -572,7 +575,10 @@ impl Head {
             name: gix::refs::FullName::try_from("HEAD").map_err(to_py)?,
         })
     }
-    #[allow(clippy::type_complexity, reason = "Preserve the native optional list of branch names and IDs")]
+    #[allow(
+        clippy::type_complexity,
+        reason = "Preserve the native optional list of branch names and IDs"
+    )]
     fn prior_checked_out_branches(&self, py: Python<'_>) -> PyResult<Option<Vec<(Py<PyBytes>, ObjectId)>>> {
         let inner = self.inner.clone();
         let values = self
