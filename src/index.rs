@@ -37,6 +37,7 @@ impl Deref for IndexSnapshot {
 }
 
 impl IndexSnapshot {
+    #[cfg(feature = "status")]
     pub fn into_owned(self) -> gix::index::File {
         match self {
             Self::Shared(index) => gix::index::File::clone(&index),
