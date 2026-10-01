@@ -56,9 +56,6 @@ jobs:
       - name: Build host-platform wheel
         run: |
           args=()
-          if [[ "$PYTHON_VERSION" == 3.11 ]]; then
-            args+=(--features abi3)
-          fi
           if [[ "$RUNNER_OS" == Linux ]]; then
             args+=(--compatibility linux)
           fi

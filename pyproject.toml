@@ -26,6 +26,7 @@ Issues = "https://github.com/GitoxideLabs/pygix/issues"
 [tool.maturin]
 python-source = "python"
 module-name = "gix._gix"
+features = ["abi3"]
 include = [
     "LICENSE-MIT", "LICENSE-APACHE", "python/gix/py.typed", "python/gix/*.pyi",
     { path = "vendor/**/*", format = "sdist" },
