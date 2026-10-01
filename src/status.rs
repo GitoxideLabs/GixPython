@@ -350,6 +350,7 @@ pub struct StatusPlatform {
     thread_limit: Option<usize>,
     sorting: bool,
     ignored: bool,
+    dirwalk: Option<gix::dirwalk::Options>,
 }
 
 #[pymethods]
@@ -413,17 +414,26 @@ impl StatusPlatform {
         out.sorting = sorting;
         out
     }
-    #[pyo3(signature = (*, emit_ignored=false))]
-    fn dirwalk_options(&self, emit_ignored: bool) -> Self {
+    #[pyo3(signature = (options=None, *, emit_ignored=false))]
+    fn dirwalk_options(&self, options: Option<crate::dirwalk::DirwalkOptions>, emit_ignored: bool) -> Self {
         let mut out = self.clone();
         out.ignored = emit_ignored;
+        out.dirwalk = options.map(|options| options.inner);
         out
     }
     #[pyo3(signature = (patterns=Vec::new()))]
+    #[allow(
+        clippy::wrong_self_convention,
+        reason = "Preserves the native gix method name on a Python-owned builder"
+    )]
     fn into_iter(&self, patterns: Vec<Bound<'_, PyAny>>) -> PyResult<StatusIter> {
         self.iter(patterns, false)
     }
     #[pyo3(signature = (patterns=Vec::new()))]
+    #[allow(
+        clippy::wrong_self_convention,
+        reason = "Preserves the native gix method name on a Python-owned builder"
+    )]
     fn into_index_worktree_iter(&self, patterns: Vec<Bound<'_, PyAny>>) -> PyResult<StatusIter> {
         self.iter(patterns, true)
     }
@@ -473,6 +483,9 @@ impl StatusPlatform {
                             );
                         }
                     });
+                    if let Some(options) = settings.dirwalk {
+                        platform = platform.dirwalk_options(|_| options);
+                    }
                     if settings.ignored {
                         platform = platform.dirwalk_options(|options| {
                             options.emit_ignored(Some(gix::dir::walk::EmissionMode::Matching))
@@ -531,6 +544,10 @@ impl StatusIter {
                 inner: self.outcome.clone(),
             }))
     }
+    #[allow(
+        clippy::wrong_self_convention,
+        reason = "Preserves the native gix method name; the outcome is consumed through interior mutability"
+    )]
     fn into_outcome(&self, py: Python<'_>) -> PyResult<Option<StatusOutcome>> {
         self.inner.close(py)?;
         Ok(self
@@ -579,8 +596,7 @@ impl StatusOutcome {
                 .map_err(|_| PyRuntimeError::new_err("status outcome is in use"))?;
             inner
                 .as_mut()
-                .map(|v| v.write_changes())
-                .flatten()
+                .and_then(|v| v.write_changes())
                 .transpose()
                 .map(|v| v.is_some())
                 .map_err(to_py)
@@ -616,6 +632,7 @@ impl Repository {
             thread_limit: None,
             sorting: false,
             ignored: false,
+            dirwalk: None,
         }
     }
     fn is_dirty(&self, py: Python<'_>) -> PyResult<bool> {
