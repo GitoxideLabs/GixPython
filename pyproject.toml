@@ -26,4 +26,11 @@ Issues = "https://github.com/GitoxideLabs/pygix/issues"
 [tool.maturin]
 python-source = "python"
 module-name = "gix._gix"
-include = ["LICENSE-MIT", "LICENSE-APACHE", "python/gix/py.typed", "python/gix/*.pyi"]
+include = [
+    "LICENSE-MIT", "LICENSE-APACHE", "python/gix/py.typed", "python/gix/*.pyi",
+    { path = "vendor/**/*", format = "sdist" },
+    { path = "tests/**/*.py", format = "sdist" },
+    { path = "etc/*.py", format = "sdist" },
+    { path = "docs/**/*.md", format = "sdist" },
+    { path = ".github/**/*", format = "sdist" },
+]

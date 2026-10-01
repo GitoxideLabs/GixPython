@@ -24,7 +24,7 @@ defaults:
 
 jobs:
   lint:
-    name: Rust formatting and clippy
+    name: Rust formatting, clippy, and unit tests
     runs-on: ubuntu-latest
     steps:
       - name: Checkout
@@ -41,9 +41,11 @@ jobs:
         run: cargo +stable fmt --all -- --check
       - name: Check clippy
         run: cargo +stable clippy --locked --all-targets -- -D warnings
+      - name: Run Rust unit tests
+        run: cargo +stable test --locked --lib
 
   test:
-    name: Python ${{ matrix.python }} on ${{ matrix.os }}
+    name: Python ${{ matrix.python }} on ${{ matrix.os }} / ${{ matrix.features || 'default' }}
     strategy:
       fail-fast: false
       matrix:
@@ -67,6 +69,14 @@ jobs:
             python: '3.14'
             features: abi3
           - os: ubuntu-latest
+            python: '3.14'
+            features: sha1,abi3
+            minimal: true
+          - os: ubuntu-latest
+            python: '3.14'
+            features: sha256,abi3
+            minimal: true
+          - os: ubuntu-latest
             python: '3.13t'
             features: ''
             gil: '0'
@@ -86,6 +96,7 @@ jobs:
     env:
       PYTHON_VERSION: ${{ matrix.python }}
       BUILD_FEATURES: ${{ matrix.features }}
+      MINIMAL_BUILD: ${{ matrix.minimal && '1' || '0' }}
     steps:
       - name: Checkout
         uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
@@ -108,6 +119,9 @@ jobs:
       - name: Build extension
         run: |
           args=()
+          if [[ "$MINIMAL_BUILD" == 1 ]]; then
+            args+=(--no-default-features)
+          fi
           if [[ -n "$BUILD_FEATURES" ]]; then
             args+=(--features "$BUILD_FEATURES")
           fi
@@ -175,10 +189,47 @@ jobs:
       - name: Compile default dependencies from scratch
         run: cargo +stable build --locked
 
+  packaging:
+    name: Rebuild and test the source distribution
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+      - name: Install uv
+        uses: astral-sh/setup-uv@20cfd1bf945f4377ade1205e4dbc17946fc9a30d # v10.0.1
+        with:
+          version: '0.12.13'
+          enable-cache: false
+      - name: Install Python
+        run: uv python install 3.11
+      - name: Install Rust
+        run: rustup toolchain install stable --profile minimal
+      - name: Install maturin
+        uses: taiki-e/install-action@b6ff580856c41316412a0b9b60540fbc6f8c82cc # v2.86.7
+        with:
+          tool: maturin@1.15.0
+      - name: Cache Rust artifacts
+        uses: Swatinem/rust-cache@6323deb102c322ba6fcbdcafc7e3dddab59af2b6 # v2.9.2
+        with:
+          key: sdist
+          save-if: ${{ github.ref == 'refs/heads/main' }}
+      - name: Build wheel from the source archive
+        run: maturin build --sdist --locked --features abi3 --compatibility linux --out dist --interpreter "$(uv python find 3.11)"
+      - name: Verify archive and wheel contents
+        run: uv run --no-project --offline --python 3.11 python etc/check_artifact.py dist/*.tar.gz dist/*.whl
+      - name: Install rebuilt wheel without an index
+        run: |
+          uv venv --python 3.11 .artifact-venv
+          uv pip install --python .artifact-venv --no-index --no-deps dist/*.whl
+      - name: Test installed source build
+        run: uv run --no-project --offline --python .artifact-venv python -m unittest discover -s tests
+
   tests-pass:
     name: Tests pass
     if: always()
-    needs: [lint, test, features, no-c]
+    needs: [lint, test, features, no-c, packaging]
     runs-on: ubuntu-latest
     permissions: {}
     steps:
