@@ -20,6 +20,8 @@ mod filter;
 mod index;
 #[cfg(feature = "merge")]
 mod merge;
+#[cfg(feature = "network")]
+mod network;
 #[cfg(feature = "notes")]
 mod notes;
 mod objects;
@@ -79,6 +81,8 @@ fn build_features() -> Vec<&'static str> {
 #[pymodule(gil_used = false)]
 fn _gix(m: &Bound<'_, PyModule>) -> PyResult<()> {
     config::register(m)?;
+    #[cfg(feature = "network")]
+    network::register(m)?;
     #[cfg(feature = "attributes")]
     submodule::register(m)?;
     worktree::register(m)?;

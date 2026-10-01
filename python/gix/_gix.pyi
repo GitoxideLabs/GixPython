@@ -1,3 +1,7 @@
+from ._network import prepare_clone as prepare_clone, prepare_clone_bare as prepare_clone_bare
+from ._network import (
+    Direction as Direction, Tags as Tags, Shallow as Shallow, RefSpec as RefSpec, RefMapOptions as RefMapOptions, Remote as Remote, Connection as Connection, PrepareFetch as PrepareFetch, PrepareClone as PrepareClone, PrepareCheckout as PrepareCheckout, RefMap as RefMap, RemoteRef as RemoteRef, Handshake as Handshake, FetchOutcome as FetchOutcome, _RepositoryNetwork as _RepositoryNetwork
+)
 from ._submodule import (
     SubmoduleIgnore as SubmoduleIgnore, SubmoduleFetchRecurse as SubmoduleFetchRecurse, SubmoduleUpdate as SubmoduleUpdate, SubmoduleBranch as SubmoduleBranch, SubmoduleState as SubmoduleState, ModulesFile as ModulesFile, SubmoduleNames as SubmoduleNames, Submodule as Submodule, SubmoduleIter as SubmoduleIter, _RepositorySubmodule as _RepositorySubmodule
 )
@@ -106,7 +110,7 @@ class OpenOptions:
     def lossy_config(self, enable: bool) -> Self: ...
     def open(self, path: _Path) -> Repository: ...
 
-class Repository(_RepositorySubmodule, _RepositoryWorktree, _FilterRepository, _AttributeRepository, _DirwalkRepository, _PathspecRepository, _RepositoryMerge, _RepositoryBlame, _RepositoryNotes, _StatusRepository, _DiffRepository, _IndexRepository, _ObjectRepository, _RepositoryReferences, _RepositoryConfig, _RepositoryRevision):
+class Repository(_RepositoryNetwork, _RepositorySubmodule, _RepositoryWorktree, _FilterRepository, _AttributeRepository, _DirwalkRepository, _PathspecRepository, _RepositoryMerge, _RepositoryBlame, _RepositoryNotes, _StatusRepository, _DiffRepository, _IndexRepository, _ObjectRepository, _RepositoryReferences, _RepositoryConfig, _RepositoryRevision):
     def git_dir(self) -> str: ...
     def path(self) -> str: ...
     def common_dir(self) -> str: ...
