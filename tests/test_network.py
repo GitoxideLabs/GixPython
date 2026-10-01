@@ -67,6 +67,21 @@ class NetworkTests(unittest.TestCase):
         with self.assertRaises(RuntimeError):
             clone.persist()
 
+    def test_invalid_clone_revision_preserves_destination_and_builder(self):
+        target = self.root / "invalid-revision"
+        clone = gix.prepare_clone(str(self.source), target, options=self.options)
+        sentinel = target / "user-file"
+        sentinel.write_bytes(b"preserve user data\n")
+        for revision in ("not-a-full-ref", "", ":", "+HEAD", "HEAD:refs/heads/main", "refs/heads/*"):
+            with self.subTest(revision=revision):
+                with self.assertRaises(gix.Error):
+                    clone.with_revision(revision)
+                self.assertEqual(sentinel.read_bytes(), b"preserve user data\n")
+        clone.with_revision("HEAD").with_revision(None)
+        repo = clone.persist()
+        self.assertEqual(Path(repo.workdir()), target)
+        self.assertEqual(sentinel.read_bytes(), b"preserve user data\n")
+
     @unittest.skipUnless("worktree-mutation" in gix.build_features(), "checkout feature disabled")
     def test_clone_checkout_and_persist(self):
         target = self.root / "checkout"

@@ -886,6 +886,22 @@ impl PrepareClone {
         revision: Option<&Bound<'_, PyAny>>,
     ) -> PyResult<PyRef<'py, Self>> {
         let revision = revision.map(bytes).transpose()?.map(BString::from);
+        if let Some(revision) = &revision {
+            // Mirror the native validation before taking its cleanup-owning builder.
+            // A consuming native error would otherwise remove the clone destination.
+            let spec = gix::refspec::parse(revision.as_ref(), gix::refspec::parse::Operation::Fetch).map_err(to_py)?;
+            let valid = spec.source().is_some_and(|source| {
+                let full_ref = source.starts_with(b"refs/") && source.find_byteset(b"*?[]\\").is_none();
+                revision.as_bstr() == source
+                    && spec.destination().is_none()
+                    && (source == "HEAD" || full_ref || gix::ObjectId::from_hex(source).is_ok())
+            });
+            if !valid {
+                return Err(to_py(gix::clone::with_revision::Error::Invalid {
+                    revision: revision.clone(),
+                }));
+            }
+        }
         slf.owner.request(py, "configure clone", None, None, move |call| {
             Box::new(move |clone| {
                 call.answer(clone.take().ok_or_else(consumed).and_then(|value| {
