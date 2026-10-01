@@ -1,9 +1,6 @@
 //! Owned Git objects and lazy views over their native encodings.
 
-use std::sync::{
-    Arc, Mutex,
-    atomic::{AtomicBool, Ordering},
-};
+use std::sync::Arc;
 
 use gix::bstr::ByteSlice;
 use pyo3::{
@@ -16,7 +13,7 @@ use crate::{
     error::to_py,
     references::{PreviousValue, Reference},
     repository::{RepoHandle, Repository},
-    runtime::{CancellationToken, OwnedIter, Progress},
+    runtime::{CancellationToken, CommandOwner, OwnedIter, Progress},
     types::{ObjectId, ObjectSpec, bytes},
 };
 
@@ -458,22 +455,33 @@ enum EditorRoot {
 /// Rust value escapes or requires a self-referential allocation.
 #[pyclass(frozen, module = "gix")]
 pub struct TreeEditor {
-    commands: Arc<Mutex<Option<EditorCommand>>>,
-    executing: AtomicBool,
-    inner: OwnedIter<PyResult<EditorReply>, PyErr>,
+    inner: CommandOwner<EditorCommand, EditorReply>,
 }
 
 impl TreeEditor {
     fn new(py: Python<'_>, handle: RepoHandle, tree: EditorRoot) -> PyResult<Self> {
-        let commands = Arc::new(Mutex::new(None));
-        let incoming = commands.clone();
-        let inner = OwnedIter::new("tree editor", None, None, move |_, producer| {
+        Self::from_factory(py, handle, None, None, move |repo| {
+            let root = match tree {
+                EditorRoot::Id(id) => repo.find_tree(id.resolve(repo)?).map_err(to_py)?,
+                EditorRoot::Object(object) => gix::Tree::from_data(object.id, object.data.clone(), repo),
+            };
+            root.edit().map_err(to_py)
+        })
+    }
+
+    pub fn from_factory<F>(
+        py: Python<'_>,
+        handle: RepoHandle,
+        progress: Option<&Progress>,
+        cancel: Option<&CancellationToken>,
+        factory: F,
+    ) -> PyResult<Self>
+    where
+        F: for<'repo> FnOnce(&'repo gix::Repository) -> PyResult<gix::object::tree::Editor<'repo>> + Send + 'static,
+    {
+        let inner = CommandOwner::new_with_options("tree editor", progress, cancel, move |_, incoming, producer| {
             handle.with(|repo| {
-                let root = match tree {
-                    EditorRoot::Id(id) => repo.find_tree(id.resolve(repo)?).map_err(to_py)?,
-                    EditorRoot::Object(object) => gix::Tree::from_data(object.id, object.data.clone(), repo),
-                };
-                let mut editor = root.edit().map_err(to_py)?;
+                let mut editor = factory(repo)?;
                 producer.serve(std::iter::from_fn(|| {
                     let command = incoming.lock().unwrap_or_else(|e| e.into_inner()).take()?;
                     let result = (|| match command {
@@ -514,34 +522,14 @@ impl TreeEditor {
                 }))
             })
         });
-        let editor = Self {
-            commands,
-            executing: AtomicBool::new(false),
-            inner,
-        };
+        let mut editor = Self { inner };
         editor.call(py, EditorCommand::Ready)?;
+        editor.inner.finish_initialization();
         Ok(editor)
     }
 
     fn call(&self, py: Python<'_>, command: EditorCommand) -> PyResult<EditorReply> {
-        if self
-            .executing
-            .compare_exchange(false, true, Ordering::AcqRel, Ordering::Acquire)
-            .is_err()
-        {
-            return Err(PyRuntimeError::new_err("tree editor is already executing"));
-        }
-        struct Release<'a>(&'a AtomicBool);
-        impl Drop for Release<'_> {
-            fn drop(&mut self) {
-                self.0.store(false, Ordering::Release);
-            }
-        }
-        let _release = Release(&self.executing);
-        *self.commands.lock().unwrap_or_else(|e| e.into_inner()) = Some(command);
-        self.inner
-            .next(py)?
-            .ok_or_else(|| PyRuntimeError::new_err("tree editor is closed"))??
+        self.inner.call(py, command)
     }
 }
 
