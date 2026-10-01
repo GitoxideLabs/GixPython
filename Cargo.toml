@@ -59,6 +59,7 @@ pyo3-build-config = "0.29.3"
 [patch."https://github.com/GitoxideLabs/gitoxide"]
 gix-transport = { path = "vendor/gix-transport" }
 gix-ref = { path = "vendor/gix-ref" }
+gix-submodule = { path = "vendor/gix-submodule" }
 
 [lints.rust]
 unsafe_code = "forbid"
