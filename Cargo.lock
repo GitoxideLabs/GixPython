@@ -1276,7 +1276,6 @@ dependencies = [
 [[package]]
 name = "gix-submodule"
 version = "0.35.0"
-source = "git+https://github.com/GitoxideLabs/gitoxide?rev=f819565c2c4c56619c4888acef6cf3b8144cbccb#f819565c2c4c56619c4888acef6cf3b8144cbccb"
 dependencies = [
  "bstr",
  "gix-config",
