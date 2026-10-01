@@ -1,3 +1,9 @@
+from ._blame import (
+    BlameOptions as BlameOptions, BlameEntry as BlameEntry, BlameOutcome as BlameOutcome, BlameLines as BlameLines, _RepositoryBlame as _RepositoryBlame
+)
+from ._notes import (
+    Note as Note, Notes as Notes, NotesRefs as NotesRefs, _RepositoryNotes as _RepositoryNotes
+)
 from ._status import (
     SubmoduleStatus as SubmoduleStatus, StatusItem as StatusItem, StatusPlatform as StatusPlatform, StatusIter as StatusIter, StatusOutcome as StatusOutcome, StatusRepository as _StatusRepository
 )
@@ -79,7 +85,7 @@ class OpenOptions:
     def lossy_config(self, enable: bool) -> Self: ...
     def open(self, path: _Path) -> Repository: ...
 
-class Repository(_StatusRepository, _DiffRepository, _IndexRepository, _ObjectRepository, _RepositoryReferences, _RepositoryConfig, _RepositoryRevision):
+class Repository(_RepositoryBlame, _RepositoryNotes, _StatusRepository, _DiffRepository, _IndexRepository, _ObjectRepository, _RepositoryReferences, _RepositoryConfig, _RepositoryRevision):
     def git_dir(self) -> str: ...
     def path(self) -> str: ...
     def common_dir(self) -> str: ...
