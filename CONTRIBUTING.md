@@ -20,4 +20,4 @@ Agent-created Git commits use explicit agent authorship. Sebastian Thiel remains
 
 Follow [SECURITY.md](SECURITY.md) for vulnerabilities. Do not put sensitive reproductions in public issues.
 
-The current implementation work is local only. Preparing workflow files or distribution artifacts does not authorize uploading, publishing, pushing, or opening a pull request. Artifact workflows deliberately contain no package-publishing or release-creation step.
+Preparing release files or artifacts does not authorize publication or account changes. Follow [RELEASING.md](RELEASING.md) for macOS releases; publishing is a separate manual, environment-gated action.

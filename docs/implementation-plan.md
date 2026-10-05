@@ -19,7 +19,7 @@ The steps below describe the complete intended project. The implementation is sp
 
 ## Persistent decisions
 
-- Python distribution: `GixPython`. Import: `gix`. Repository: `GitoxideLabs/pygix`.
+- Python distribution: `GixPython`. Import: `gix`. Repository: `GitoxideLabs/GixPython`.
 - Preserve existing `gix::Repository` names and semantics. Do not add invented Git convenience methods. A private converter may resolve `str`/`bytes` revspec arguments for native object-ID parameters, without implicit peeling.
 - The scope is the native engine's Git-related capabilities. Unsupported native operations are explicit limitations, not invitations to implement a Git subprocess fallback.
 - Keep native lazy operations lazy, including incremental Python result conversion and object access. Document any unavoidable eager native computation.

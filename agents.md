@@ -2,7 +2,7 @@
 
 ## Product and API
 
-- The repository is `GitoxideLabs/pygix`, the Python distribution is `GixPython`, and the import is `gix`.
+- The repository is `GitoxideLabs/GixPython`, the Python distribution is `GixPython`, and the import is `gix`.
 - Build a complete PyO3 project exposing the Git capabilities available through the native `gix` crate. Keep an honest record of implemented and unsupported capabilities in the documentation.
 - Preserve existing `gix::Repository` API names and semantics. Do not invent Git convenience methods or rename operations. A private argument converter may resolve `str`/`bytes` revspecs for native object-ID arguments, without implicit peeling. In particular, `Repository.commit()` creates a commit; it is not a lookup helper.
 - Bind native operations instead of reimplementing Git or invoking the Git executable as an implementation fallback. Native configured helpers, such as SSH, credential helpers, filters, and signing tools, are distinct from a Git fallback.
@@ -12,6 +12,7 @@
 
 ## Runtime and builds
 
+- The first release supports macOS 11+ on Apple Silicon and Intel only. Linux and Windows CI are portability checks, not release support. Publish four macOS wheels (two architectures, ordinary and free-threaded CPython) and a source distribution.
 - Support ordinary CPython 3.11 and newer with stable-ABI wheels. Free-threaded builds require CPython 3.14 or newer, as required by PyO3, and need their own compatible wheels and tests.
 - Keep the Rust side thread-safe and parallel. Use `gix::ThreadSafeRepository` with operation-local native handles rather than serializing every operation behind a repository-wide lock.
 - Detach from Python during native work. Never rely on the GIL for synchronization, and do not mark repository wrappers `unsendable`.
@@ -34,6 +35,7 @@
 
 - Work locally only: no PyPI interaction, account writes, push, publication, remote release, or pull request unless the user explicitly changes this boundary. Rust dependency downloads needed to build this project are authorized.
 - The user subsequently authorized GitHub CI setup for this repository: push the committed project and CI fixes to `origin/main`, configure Actions, and verify runs on main and PRs. This does not authorize package publication or changes to the upstream Gitoxide remote.
+- First-release preparation is authorized locally: metadata, Gitoxide-style changelog, macOS artifacts, and a manual Trusted Publishing workflow. PyPI account interaction and publication still require explicit authorization.
 - Small necessary upstream changes may be prepared locally in `/Users/byron/dev/github.com/GitoxideLabs/gitoxide.pygix`. Preserve that prepared branch and unrelated changes. Inspect its applicable instructions and Tix state before changing history.
 - Earlier permission to push upstream changes or create a draft PR is superseded by the local-only instruction. If later reauthorized, use `pr-from-session`, target `origin`, disclose Codex authorship, and create a draft PR only.
 - Use available local caches when practical. Do not use a Python package index to install missing build tools; report missing prerequisites accurately.

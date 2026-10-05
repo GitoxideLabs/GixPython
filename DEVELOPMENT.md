@@ -57,7 +57,7 @@ The GitHub workflows run on pushes to `main` and pull requests targeting `main`,
 
 Private repositories run zizmor with workflow annotations instead of code-scanning uploads. CodeQL runs only for public repositories; enabling it here while private requires GitHub Advanced Security and an update to its job condition.
 
-The artifact workflow builds distribution candidates for review. It does not upload to PyPI, create a GitHub release, or change package/account settings. Ordinary CPython and free-threaded CPython require their respective ABI configurations. Its initial Linux wheels target the build host (`linux_*`); they are not certified manylinux or musllinux wheels. Test an installed wheel and a source-distribution build, and add the appropriate Linux compatibility environment, before describing these candidates as release-ready.
+The artifact workflow builds macOS 11+ candidates for Apple Silicon and Intel, for both the stable and free-threaded ABIs. It does not upload to PyPI, create a GitHub release, or change package/account settings. Ordinary CPython and free-threaded CPython require their respective ABI configurations. Linux and Windows CI provide portability checks only. They are not supported release platforms. Each release wheel is built from the source archive and tested after installation. See [RELEASING.md](RELEASING.md) for the separate manual publishing workflow and required account setup.
 
 
 ## Feature selections

@@ -6,7 +6,7 @@ rust-version = "1.89"
 authors = ["Sebastian Thiel <sebastian.thiel@icloud.com>"]
 license = "MIT OR Apache-2.0"
 description = "Faithful, parallel Python bindings to gix::Repository"
-repository = "https://github.com/GitoxideLabs/pygix"
+repository = "https://github.com/GitoxideLabs/GixPython"
 publish = false
 
 [lib]

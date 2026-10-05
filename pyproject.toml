@@ -16,12 +16,15 @@ classifiers = [
     "Programming Language :: Python :: 3",
     "Programming Language :: Python :: Implementation :: CPython",
     "Programming Language :: Rust",
+    "Operating System :: MacOS :: MacOS X",
     "Topic :: Software Development :: Version Control :: Git",
 ]
 
 [project.urls]
-Repository = "https://github.com/GitoxideLabs/pygix"
-Issues = "https://github.com/GitoxideLabs/pygix/issues"
+Documentation = "https://github.com/GitoxideLabs/GixPython/blob/main/README.md"
+Changelog = "https://github.com/GitoxideLabs/GixPython/blob/main/CHANGELOG.md"
+Repository = "https://github.com/GitoxideLabs/GixPython"
+Issues = "https://github.com/GitoxideLabs/GixPython/issues"
 
 [tool.maturin]
 python-source = "python"
@@ -29,6 +32,8 @@ module-name = "gix._gix"
 features = ["abi3"]
 include = [
     "LICENSE-MIT", "LICENSE-APACHE", "python/gix/py.typed", "python/gix/*.pyi",
+    { path = "CHANGELOG.md", format = "sdist" },
+    { path = "RELEASING.md", format = "sdist" },
     { path = "vendor/**/*", format = "sdist" },
     { path = "tests/**/*.py", format = "sdist" },
     { path = "etc/*.py", format = "sdist" },
