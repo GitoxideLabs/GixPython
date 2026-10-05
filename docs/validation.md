@@ -1,5 +1,26 @@
 # Local validation
 
+## First release preparation (2026-10-05)
+
+Version 0.1.0 now targets macOS 11+ on Apple Silicon and Intel. Updated
+Apple Silicon wheels were built from the source archive using maturin 1.15.0
+and Rust 1.99.0, without accessing a Python package index. Both installed
+wheels passed all 105 integration tests: ordinary CPython 3.14.7 had two
+expected skips; free-threaded CPython 3.14.7 with `PYTHON_GIL=0` had one.
+
+Release metadata, source contents, licenses, type stubs, and both wheel
+contents passed local validation. Actionlint 1.7.12 and offline pedantic
+zizmor 1.30.1 passed; the same-commit reusable workflow syntax has one
+documented compatibility suppression. Three regression checks verify the
+release tag, artifact completeness, and wheel metadata version gates.
+
+Current candidates and checksums are in `dist/0.1.0-macos-candidate/`.
+Intel wheels and the complete five-artifact release set await the configured
+GitHub workflow run. No PyPI account setup, tag, upload, or publication was
+performed. See [RELEASING.md](../RELEASING.md) for the exact setup and commands.
+
+## Initial implementation validation (2026-10-01)
+
 These checks ran on macOS with Apple Silicon on 2026-10-01, using Rust 1.98.1
 and maturin 1.15.0. They cover the final native implementation, including
 configuration destruction/retry and clone revision-validation fixes.

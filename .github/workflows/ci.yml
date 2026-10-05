@@ -39,6 +39,8 @@ jobs:
           save-if: ${{ github.ref == 'refs/heads/main' }}
       - name: Check formatting
         run: cargo +stable fmt --all -- --check
+      - name: Check release validation
+        run: python3 etc/test_check_release.py
       - name: Check clippy
         run: cargo +stable clippy --locked --all-targets -- -D warnings
       - name: Run Rust unit tests
@@ -50,29 +52,29 @@ jobs:
       fail-fast: false
       matrix:
         include:
-          - os: ubuntu-latest
+          - os: macos-latest
             python: '3.11'
             features: abi3
-          - os: ubuntu-latest
+          - os: macos-latest
             python: '3.12'
             features: abi3
-          - os: ubuntu-latest
+          - os: macos-latest
             python: '3.13'
             features: abi3
-          - os: ubuntu-latest
+          - os: macos-latest
             python: '3.14'
             features: abi3
-          - os: macos-latest
+          - os: macos-15-intel
             python: '3.14'
             features: abi3
           - os: windows-latest
             python: '3.14'
             features: abi3
-          - os: ubuntu-latest
+          - os: macos-latest
             python: '3.14'
             features: sha1,abi3
             minimal: true
-          - os: ubuntu-latest
+          - os: macos-latest
             python: '3.14'
             features: sha256,abi3
             minimal: true
@@ -170,7 +172,7 @@ jobs:
 
   no-c:
     name: Build without a C or C++ compiler
-    runs-on: ubuntu-latest
+    runs-on: macos-latest
     env:
       CC: /usr/bin/false
       CXX: /usr/bin/false
@@ -187,7 +189,7 @@ jobs:
 
   packaging:
     name: Rebuild and test the source distribution
-    runs-on: ubuntu-latest
+    runs-on: macos-latest
     steps:
       - name: Checkout
         uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
@@ -212,7 +214,7 @@ jobs:
           key: sdist
           save-if: ${{ github.ref == 'refs/heads/main' }}
       - name: Build wheel from the source archive
-        run: maturin build --sdist --locked --compatibility linux --out dist --interpreter "$(uv python find 3.11)"
+        run: maturin build --sdist --locked --compatibility pypi --out dist --interpreter "$(uv python find 3.11)"
       - name: Verify archive and wheel contents
         run: uv run --no-project --offline --python 3.11 python etc/check_artifact.py dist/*.tar.gz dist/*.whl
       - name: Install rebuilt wheel without an index

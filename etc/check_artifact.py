@@ -20,7 +20,7 @@ def check_sdist(path, expected_stubs):
         prefix = roots.pop() + "/"
         names = {name.removeprefix(prefix) for name in entries}
         required = {"Cargo.toml", "Cargo.lock", "build.rs", "pyproject.toml", "src/lib.rs",
-                    "README.md", "LICENSE-MIT", "LICENSE-APACHE", "python/gix/__init__.py",
+                    "README.md", "CHANGELOG.md", "RELEASING.md", "LICENSE-MIT", "LICENSE-APACHE", "python/gix/__init__.py",
                     "python/gix/py.typed", "etc/build.py", "etc/check_artifact.py", "tests/test_package.py"}
         required.update("python/gix/" + name for name in expected_stubs)
         manifest = tomllib.loads(archive.extractfile(prefix + "Cargo.toml").read().decode())
