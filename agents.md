@@ -19,6 +19,8 @@
 - Declare free-threading support only when the implementation satisfies it. Test a shared repository across threads with the GIL disabled.
 - All supported configurations must build without compiling C or C++ dependencies. Use pure-Rust hashing/compression and reqwest/rustls with Graviola; do not accidentally enable a C-backed TLS provider through default dependency features.
 - Default builds include both SHA-1 and SHA-256 and broad native capability groups. Keep important build choices explicit and test the supported reduced configurations.
+- Python development may opt into a local Gitoxide checkout with `GIXPYTHON_GITOXIDE_PATH` or `etc/build.py --gitoxide-path`; `--packaged` forces release dependencies. Local mode requires Cargo 1.97+, uses an ignored separate lockfile and command-local patches, and must never edit the packaged manifest/lockfile or silently fall back. Direct Cargo and maturin builds keep release dependencies.
+- Continue local development against the prepared checkout after the first release. Migrate package dependencies to crates.io once compatible published releases include all prerequisites; keep distributing macOS binary wheels and an sdist. Never commit machine-specific dependency paths. Local build provenance reports checkout HEAD, including uncommitted edits in the build without claiming they have a new revision.
 - Follow current PyO3 APIs and ownership rules. Avoid `unsafe` and production `unwrap()`; justify any unavoidable exception locally.
 - Progress uses a pollable `Progress.snapshot()` API and interruption uses `CancellationToken` plus normal Python exceptions. Do not add callbacks or install process-wide signal handlers. Do not call Python while holding native state locks.
 

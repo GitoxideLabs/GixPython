@@ -54,13 +54,20 @@ def main(argv=None):
     checkout = args.gitoxide_path
     if checkout is None and not args.packaged:
         checkout = os.environ.get("GIXPYTHON_GITOXIDE_PATH")
+    env = dict(os.environ, PYO3_PYTHON=sys.executable, PYO3_BUILD_EXTENSION_MODULE="1")
+    env.pop("GIXPYTHON_BUILD_GIX_REVISION", None)
     if checkout:
         checkout = Path(checkout).expanduser().resolve()
         try:
             command.extend(local_cargo_config(root, checkout))
+            revision = subprocess.run(["git", "-C", str(checkout), "rev-parse", "HEAD"],
+                                      check=True, capture_output=True, text=True).stdout.strip()
+            if re.fullmatch(r"[0-9a-f]{40}", revision) is None:
+                raise ValueError(f"Gitoxide checkout must have a valid Git HEAD: {checkout}")
         except (OSError, ValueError, subprocess.CalledProcessError) as error:
             parser.error(str(error))
-        print(f"Building against local Gitoxide: {checkout} (including uncommitted edits)", flush=True)
+        env["GIXPYTHON_BUILD_GIX_REVISION"] = revision
+        print(f"Building against local Gitoxide: {checkout} at {revision} (including uncommitted edits)", flush=True)
     else:
         command.append("--locked")
     if args.release:
@@ -69,7 +76,6 @@ def main(argv=None):
         command.append("--no-default-features")
     if args.features:
         command.extend(["--features", args.features])
-    env = dict(os.environ, PYO3_PYTHON=sys.executable, PYO3_BUILD_EXTENSION_MODULE="1")
     result = subprocess.run(command, cwd=root, env=env, stdout=subprocess.PIPE, text=True)
     source = None
     for line in result.stdout.splitlines():

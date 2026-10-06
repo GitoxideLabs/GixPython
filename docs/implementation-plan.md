@@ -41,6 +41,15 @@ Small necessary upstream changes may be prepared in the existing local `gitoxide
 
 Do not commit machine-specific dependency paths. Record local overrides and upstream prerequisites explicitly. Publicly reproducible wheels and source distributions require all dependencies to be available independently of that local worktree.
 
+Local Python build selection is implemented through `GIXPYTHON_GITOXIDE_PATH`,
+`--gitoxide-path`, and `--packaged` in `etc/build.py`. Cargo 1.97+ provides an ignored
+development lockfile; command-local patches build directly from checkout edits
+without changing packaged inputs. Local provenance reports checkout HEAD.
+Direct Cargo checks and maturin artifacts continue using release dependencies.
+After upstream integration, package builds will use compatible crates.io releases
+and retain macOS wheels plus an sdist. See [development instructions](../DEVELOPMENT.md)
+for the switch and migration requirements.
+
 ## Acceptance
 
 Every completed capability has a Python integration check and accurate type/documentation coverage. Checks use disposable repositories and isolated Git configuration; both hash kinds and relevant feature selections are exercised. Shared-handle concurrency, GIL-disabled execution, partial iterator consumption, interruption, stale-reference rejection, and artifact installation are project requirements.

@@ -45,6 +45,22 @@ It does not edit `Cargo.toml`, the committed `Cargo.lock`, or `.cargo/config.tom
 Only `etc/build.py` (and `just` recipes using it) consumes this selection; direct
 Cargo lint/test commands and maturin package builds use release dependencies.
 
+Local `gix.__gix_revision__` reports checkout HEAD. Uncommitted changes are included
+in the build but do not change that revision string. Every local invocation reads
+HEAD again; Cargo tracks the revision environment value to rebuild provenance
+when switching checkouts or returning to packaged mode. Packaged builds report
+the pinned public revision; the vendored fixes retain their separate provenance.
+
+Continue using the local switch after the first release until the upstream fixes
+are merged. Once compatible `gix` and `gix-archive` releases on crates.io contain
+all three prerequisites, switch the manifest to those published versions,
+regenerate the committed lockfile, remove the corresponding vendored patches,
+and update the packaged revision in `build.rs`. The local selector derives patch
+sources from the manifest, so it continues working with crates.io dependencies.
+Revalidate the supported feature groups and builds without C/C++ compilers at
+that migration. macOS binary wheels and an independently buildable source
+distribution remain the release artifacts.
+
 ## Validation
 
 See the [local validation record](docs/validation.md) for tested interpreters,

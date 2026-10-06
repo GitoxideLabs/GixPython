@@ -44,7 +44,7 @@ mod submodule;
 mod types;
 mod worktree;
 
-const GIX_REVISION: &str = "f819565c2c4c56619c4888acef6cf3b8144cbccb";
+const GIX_REVISION: &str = env!("GIXPYTHON_GIX_REVISION");
 
 /// Return the compile-time capabilities of this installation.
 #[pyfunction]

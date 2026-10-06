@@ -27,10 +27,12 @@ class BuildTests(unittest.TestCase):
                     patch.object(build.subprocess, "run") as run, \
                     patch.object(build.shutil, "copy2") as copy, \
                     contextlib.redirect_stdout(io.StringIO()):
-                run.return_value.stdout = json.dumps({
+                artifact = subprocess.CompletedProcess([], 0, stdout=json.dumps({
                     "reason": "compiler-artifact", "target": {"name": "_gix"},
                     "filenames": ["/custom-target/lib_gix.dylib"],
-                })
+                }))
+                revision = "a" * 40
+                run.side_effect = ([subprocess.CompletedProcess([], 0, stdout=revision)] if expected else []) + [artifact]
                 build.main(arguments + ["--release", "--no-default-features", "--features", "sha256"])
                 command = run.call_args.args[0]
                 self.assertIn("--release", command)
@@ -38,6 +40,7 @@ class BuildTests(unittest.TestCase):
                 self.assertEqual(command[-2:], ["--features", "sha256"])
                 self.assertEqual("--locked" in command, expected is None)
                 self.assertEqual(run.call_args.kwargs["env"]["PYO3_PYTHON"], build.sys.executable)
+                self.assertEqual(run.call_args.kwargs["env"].get("GIXPYTHON_BUILD_GIX_REVISION"), revision if expected else None)
                 copy.assert_called_once()
                 self.assertEqual(copy.call_args.args[0], Path("/custom-target/lib_gix.dylib"))
                 if expected is None:
@@ -62,11 +65,24 @@ class BuildTests(unittest.TestCase):
                 patch.object(build.subprocess, "run") as run, \
                 patch.object(build.shutil, "copy2") as copy, \
                 contextlib.redirect_stdout(io.StringIO()), self.assertRaises(subprocess.CalledProcessError):
-            run.return_value.stdout = ""
-            run.return_value.check_returncode.side_effect = subprocess.CalledProcessError(1, "cargo build")
+            run.side_effect = [subprocess.CompletedProcess([], 0, stdout="a" * 40),
+                               subprocess.CompletedProcess([], 1, stdout="")]
             build.main([])
-        run.assert_called_once()
+        self.assertEqual(run.call_count, 2)  # Git provenance, then one build attempt.
         copy.assert_not_called()
+
+    def test_invalid_git_head_and_packaged_provenance(self):
+        with patch.object(build, "local_cargo_config", return_value=[]), \
+                patch.object(build.subprocess, "run", return_value=subprocess.CompletedProcess([], 0, stdout="invalid")) as run, \
+                contextlib.redirect_stderr(io.StringIO()) as stderr, self.assertRaises(SystemExit):
+            build.main(["--gitoxide-path", "."])
+        self.assertIn("valid Git HEAD", stderr.getvalue())
+        run.assert_called_once()
+        with patch.dict(os.environ, {"GIXPYTHON_GITOXIDE_PATH": "/checkout", "GIXPYTHON_BUILD_GIX_REVISION": "a" * 40}, clear=True), \
+                patch.object(build.subprocess, "run", return_value=subprocess.CompletedProcess([], 1, stdout="")) as run, \
+                self.assertRaises(subprocess.CalledProcessError):
+            build.main(["--packaged"])
+        self.assertNotIn("GIXPYTHON_BUILD_GIX_REVISION", run.call_args.kwargs["env"])
 
     def test_local_configuration_and_lockfile(self):
         with tempfile.TemporaryDirectory() as directory, patch.object(build.subprocess, "run") as run:

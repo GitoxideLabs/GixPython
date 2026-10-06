@@ -7,6 +7,12 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## Unreleased
 
+### New Features
+
+ - Select a local Gitoxide checkout for Python development builds with
+   `GIXPYTHON_GITOXIDE_PATH` or `--gitoxide-path`, using a separate development
+   lockfile. `--packaged` forces release dependencies. Local builds report checkout HEAD.
+
 ## 0.1.0 (2026-10-05)
 
 ### New Features

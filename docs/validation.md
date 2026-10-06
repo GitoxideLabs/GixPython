@@ -1,5 +1,35 @@
 # Local validation
 
+## Local Gitoxide development builds (2026-10-06)
+
+On Apple Silicon macOS, Cargo 1.99.0 resolved all 60 Gitoxide crates directly
+from the selected checkout, including its three upstream fixes. Offline
+compilation passed with C/C++ compilers disabled, preserving the committed
+`Cargo.toml` and `Cargo.lock`. The development lockfile remained in ignored
+`.cache/gitoxide-local/`. No persistent Cargo configuration was created.
+
+Local CPython 3.14.7 passed 105 integration tests with two expected skips.
+Local free-threaded CPython 3.14.7 passed the same suite with the GIL disabled
+and one expected skip. Both exported checkout HEAD through `__gix_revision__`.
+Forcing packaged mode with an invalid local-path environment value restored
+the pinned revision and passed 105 tests with two expected skips.
+
+The sdist had no developer dependency paths or local cache files. An ordinary
+ABI3 macOS wheel built offline from its independently extracted sources,
+with C/C++ compilers disabled and an invalid local-path setting, passed artifact
+validation and all 105 installed-package tests (two expected skips). This
+candidate is under `dist/local-gitoxide-validation/`; it is a development-profile
+validation artifact, not a release candidate.
+
+Five build-helper checks cover selection precedence, forced packaged mode,
+invalid paths/provenance, the Cargo version gate, lockfile preservation,
+source patching after a crates.io migration, and failures without fallback.
+Actionlint and offline pedantic zizmor passed for the updated CI workflow.
+Rust formatting, clippy with warnings denied, and all seven Rust tests passed.
+Loopback network fixtures ran with sandbox access; the incomplete older cached
+free-threaded interpreter was replaced for these checks by a task-owned binary
+download from python-build-standalone, without using a Python package index.
+
 ## First release preparation (2026-10-05)
 
 Version 0.1.0 now targets macOS 11+ on Apple Silicon and Intel. Updated
