@@ -76,7 +76,34 @@ cargo clippy --locked --all-targets -- -D warnings
 cargo test --locked --lib
 ```
 
-The `justfile` provides the same commands. Select an installed free-threaded interpreter in place of `python3` to test that ABI. Use `PYTHON_GIL=0` for free-threaded tests; the package test also verifies importing the extension keeps the GIL disabled.
+The `justfile` groups common commands under Development, Tests, and Releases,
+following Gitoxide. Run `just` to list them. `just build`, `just test`, `just check`,
+`just fmt`, `just unit-tests`, and `just helper-tests` cover the usual development
+loop. Set `PYTHON` to select an installed interpreter.
+`just test-free-threaded /path/to/python3.14t` builds and tests the free-threaded ABI with `PYTHON_GIL=0`.
+The package test also verifies importing the extension keeps the GIL disabled.
+
+## Try a published release
+
+With uv installed, open a Python prompt with `gix` already imported, or run a command:
+
+```sh
+just run-release
+just run-release 0.1.0
+just run-release latest -c 'import gix; print(gix.__version__, gix.build_features())'
+just run-release 0.1.0 /path/to/script.py
+```
+
+This recipe downloads the latest compatible stable release, or the given version,
+into an isolated uv virtualenv. It refreshes release resolution on each invocation,
+uses the installed `PYTHON` interpreter, and requires a matching binary wheel;
+it does not build sources or install build tools. Python runs in isolated mode
+so inherited `PYTHONPATH` and the checkout's extension cannot shadow the release.
+Pass `latest` before any Python arguments; set `PYTHON` to an installed
+free-threaded interpreter to try its wheel. These commands read PyPI when invoked.
+Development builds continue using the local selection described above.
+
+## Integration checks
 
 Each new binding should have a focused Python integration check against a disposable repository. Verify errors as well as success, both supported hash kinds, and any meaningful reduced feature configuration. Compare with Git when it provides an appropriate reference result.
 
