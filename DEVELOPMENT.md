@@ -22,6 +22,29 @@ Each directory includes its licenses and `README.pygix.md` provenance. Cargo man
 
 The corresponding local upstream commits are in the prepared `gitoxide.pygix` checkout for Sebastian Thiel's review. Nothing was pushed. If later authorized, upstream contributions use `pr-from-session` and draft PRs only.
 
+## Develop against a local Gitoxide checkout
+
+Opt in persistently for Python development builds:
+
+```sh
+export GIXPYTHON_GITOXIDE_PATH=/Users/byron/dev/github.com/GitoxideLabs/gitoxide.pygix
+python3 etc/build.py
+PYTHONPATH=python python3 -m unittest discover -s tests
+```
+
+This mode needs Cargo 1.97+ for its separate lockfile. Ordinary builds retain the
+Rust 1.89 minimum. `--gitoxide-path PATH` overrides the environment selection;
+`--packaged` ignores it and builds the pinned release dependencies. The two flags
+are mutually exclusive. Invalid checkouts, older Cargo, and failed builds stop
+with an error; they never fall back to release dependencies.
+
+The builder patches Gitoxide crates for that command and compiles directly from
+the checkout, including uncommitted edits. It seeds `.cache/gitoxide-local/Cargo.lock`
+once from the committed lockfile, then lets Cargo update that development copy.
+It does not edit `Cargo.toml`, the committed `Cargo.lock`, or `.cargo/config.toml`.
+Only `etc/build.py` (and `just` recipes using it) consumes this selection; direct
+Cargo lint/test commands and maturin package builds use release dependencies.
+
 ## Validation
 
 See the [local validation record](docs/validation.md) for tested interpreters,

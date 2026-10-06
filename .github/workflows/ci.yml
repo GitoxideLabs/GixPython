@@ -41,6 +41,8 @@ jobs:
         run: cargo +stable fmt --all -- --check
       - name: Check release validation
         run: python3 etc/test_check_release.py
+      - name: Check local build selection
+        run: python3 etc/test_build.py
       - name: Check clippy
         run: cargo +stable clippy --locked --all-targets -- -D warnings
       - name: Run Rust unit tests
