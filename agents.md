@@ -29,6 +29,7 @@
 - Use `MIT OR Apache-2.0`, with Sebastian Thiel as package author and copyright holder. Include both license texts in distributions.
 - Divide work into meaningful, independently buildable and testable commits. Include documentation and relevant regression checks with the behavior they describe.
 - Follow Gitoxide's purposeful conventional commits: use `feat:`/`fix:` for user-visible changes and plain descriptive subjects for maintenance. Use explicit Codex authorship for agent-created commits; package authorship is separate.
+- Preserve tagged and published history. Now that `v0.1.0` exists, create new commits for further changes, including CI fixes; do not amend earlier commits unless the user explicitly authorizes that specific amendment.
 - Keep packaging, type information, examples, contributor guidance, CI, security policy, and artifact-building configuration part of the project.
 - Tests use disposable repositories and isolated Git configuration/environment. Never mutate the developer's checkout, another worktree, or shared Git metadata as a fixture.
 - The implementation sequence and persistent design decisions are in [docs/implementation-plan.md](docs/implementation-plan.md). Update its status as work lands; do not present planned coverage as completed.
