@@ -59,13 +59,15 @@ artifacts *args:
     maturin build --sdist --release --locked --out dist --interpreter {{ quote(python) }} "$@"
     {{ quote(python) }} etc/check_artifact.py dist/*.tar.gz dist/*.whl
 
-# Run the latest or a specified release in an isolated uv virtualenv (requires a wheel).
+# Explore a release in IPython with completion, or run Python arguments in an isolated uv virtualenv.
 [group('Releases')]
 [positional-arguments]
 run-release version='latest' *args:
     version="$1"; shift; \
         package=GixPython; \
         if [ "$version" != latest ]; then package="GixPython==$version"; fi; \
-        if [ "$#" -eq 0 ]; then set -- -i -c 'import gix; print("GixPython", gix.__version__)'; fi; \
+        if [ "$#" -eq 0 ]; then \
+            set -- --with ipython python -I -m IPython --quick -i -c 'import gix; print("GixPython", gix.__version__)'; \
+        else set -- python -I "$@"; fi; \
         uv run --no-project --isolated --no-python-downloads --python {{ quote(python) }} \
-            --no-build --upgrade-package GixPython --with "$package" python -I "$@"
+            --no-build --upgrade-package GixPython --with "$package" "$@"

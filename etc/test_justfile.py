@@ -21,12 +21,15 @@ class JustfileTests(unittest.TestCase):
             stub.chmod(0o755)
             env = dict(os.environ, PATH=directory + os.pathsep + os.environ["PATH"], PYTHON=sys.executable,
                        PYTHONPATH=str(root / "python"))
+            interactive = ["--with", "ipython", "python", "-I", "-m", "IPython", "--quick", "-i", "-c",
+                           'import gix; print("GixPython", gix.__version__)']
             for arguments, package, python_args in (
-                ([], "GixPython", ["-i", "-c", 'import gix; print("GixPython", gix.__version__)']),
+                ([], "GixPython", interactive),
+                (["0.1.0"], "GixPython==0.1.0", interactive),
                 (["0.1.0", "-c", "import gix; print(gix.__version__)"], "GixPython==0.1.0",
-                 ["-c", "import gix; print(gix.__version__)"]),
+                 ["python", "-I", "-c", "import gix; print(gix.__version__)"]),
                 (["latest", "script with spaces.py", "argument with spaces"], "GixPython",
-                 ["script with spaces.py", "argument with spaces"]),
+                 ["python", "-I", "script with spaces.py", "argument with spaces"]),
             ):
                 with self.subTest(arguments=arguments):
                     result = subprocess.run(["just", "--justfile", str(root / "justfile"), "run-release", *arguments],
@@ -34,7 +37,7 @@ class JustfileTests(unittest.TestCase):
                     command = json.loads(result.stdout)
                     self.assertEqual(command, ["run", "--no-project", "--isolated", "--no-python-downloads",
                                                "--python", sys.executable, "--no-build", "--upgrade-package",
-                                               "GixPython", "--with", package, "python", "-I", *python_args])
+                                               "GixPython", "--with", package, *python_args])
 
 
 if __name__ == "__main__":

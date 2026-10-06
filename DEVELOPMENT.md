@@ -85,7 +85,8 @@ The package test also verifies importing the extension keeps the GIL disabled.
 
 ## Try a published release
 
-With uv installed, open a Python prompt with `gix` already imported, or run a command:
+With uv installed, open an IPython prompt with `gix` already imported and Tab
+completion available, or run a Python command:
 
 ```sh
 just run-release
@@ -99,6 +100,9 @@ into an isolated uv virtualenv. It refreshes release resolution on each invocati
 uses the installed `PYTHON` interpreter, and requires a matching binary wheel;
 it does not build sources or install build tools. Python runs in isolated mode
 so inherited `PYTHONPATH` and the checkout's extension cannot shadow the release.
+Interactive sessions also install IPython into that virtualenv and skip loading
+IPython startup files and configuration. Script and `-c` arguments continue to
+use ordinary Python without installing IPython.
 Pass `latest` before any Python arguments; set `PYTHON` to an installed
 free-threaded interpreter to try its wheel. These commands read PyPI when invoked.
 Development builds continue using the local selection described above.
