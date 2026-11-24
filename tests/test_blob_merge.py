@@ -119,7 +119,7 @@ class BlobMergeTests(unittest.TestCase):
         with cache.prepare_merge() as prepared:
             self.assertEqual(prepared.current.kind, "Missing")
             self.assertIsNone(prepared.current.data)
-            self.assertEqual(prepared.current.as_slice(), b"")
+            self.assertIsNone(prepared.current.as_slice())
             self.assertIsNone(prepared.id_by_pick("Ours", b""))
 
     def test_worktree_roots_and_attribute_driver_configuration(self):
@@ -162,14 +162,18 @@ class BlobMergeTests(unittest.TestCase):
         with cache.prepare_merge(gix.BlobMergeOptions(is_virtual_ancestor=True)) as prepared:
             self.assertEqual(prepared.driver, "binary")
             self.assertEqual(prepared.options.resolve_binary_with, "ours")
-        failing = gix.init(self.path / "failing", options=gix.OpenOptions.isolated().config_overrides([
-            "merge.default=fail", "merge.fail.driver=exit 17"
-        ]))
-        bad_cache, _ = self.cache(failing)
-        with bad_cache.prepare_merge() as prepared:
-            with self.assertRaises(gix.Error):
-                prepared.merge()
-            self.assertEqual(prepared.current.data, b"A\nb\nc\n")
+        for status in (17, 129):
+            failing = gix.init(self.path / f"driver-{status}", options=gix.OpenOptions.isolated().config_overrides([
+                "merge.default=fail", f"merge.fail.driver=exit {status}"
+            ]))
+            bad_cache, _ = self.cache(failing)
+            with bad_cache.prepare_merge() as prepared:
+                if status == 17:
+                    self.assertEqual(prepared.merge(), (b"A\nb\nc\n", "Buffer", "Conflict"))
+                else:
+                    with self.assertRaises(gix.Error):
+                        prepared.merge()
+                self.assertEqual(prepared.current.data, b"A\nb\nc\n")
 
     def test_driver_descriptors_preserve_raw_configuration_bytes(self):
         config = Path(self.repo.git_dir()) / "config"
@@ -189,6 +193,9 @@ class BlobMergeTests(unittest.TestCase):
         cache, ids = self.cache()
         with self.assertRaises(gix.Error):
             cache.set_resource(ids["current"], 0o040000, "tree", "current")
+        with self.assertRaises(gix.Error):
+            cache.prepare_merge()
+        cache.set_resource(ids["current"], 0o100644, self.resource_path, "current")
         token = gix.CancellationToken()
         token.cancel()
         with self.assertRaises(gix.CancelledError):

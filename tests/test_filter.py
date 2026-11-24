@@ -86,7 +86,7 @@ class FilterTests(unittest.TestCase):
                     expected_id = str(repo.write_blob(data)).encode()
                     with pipeline.convert_to_worktree(data, "file.txt") as stream:
                         expanded = stream.read()
-                    self.assertEqual(expanded, b"$Id: " + expected_id + b"$\n")
+                    self.assertEqual(expanded, b"$Id: " + expected_id + b" $\n")
                     with pipeline.convert_to_git(expanded, "file.txt", index) as stream:
                         self.assertEqual(stream.read(), data)
 

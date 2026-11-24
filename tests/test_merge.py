@@ -32,12 +32,13 @@ class MergeTests(unittest.TestCase):
             self.assertEqual(conflict.ours.location(), b"file")
             self.assertIsNotNone(conflict.content_merge())
             with merged.tree as editor:
-                unresolved_tree = editor.write()
-                index = repo.index_from_tree(unresolved_tree)
-                self.assertTrue(merged.index_changed_after_applying_conflicts(index, gix.TreatAsUnresolved.git()))
-                self.assertEqual([e.stage() for e in index.entries()], [1, 2, 3])
                 editor.upsert("file", "blob", repo.write_blob(b"resolved\n"))
                 resolved_tree = editor.write()
+            index = merged.index_file(gix.TreatAsUnresolved.git())
+            self.assertEqual([e.stage() for e in index.entries()], [1, 2, 3])
+            self.assertEqual([e.id for e in index.entries()], [
+                repo.find_tree(tree).find_entry("file").id() for tree in (base_tree, ours_tree, theirs_tree)
+            ])
             self.assertEqual(progress.state, "succeeded")
             self.assertEqual(repo.find_tree(resolved_tree).find_entry(b"file").object().data, b"resolved\n")
             options = gix.CommitMergeOptions(repo.tree_merge_options().with_file_favor("ours"))

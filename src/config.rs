@@ -403,7 +403,8 @@ impl Repository {
     fn open_options(&self, py: Python<'_>) -> PyResult<crate::repository::OpenOptions> {
         self.handle.run(py, |r| {
             Ok(crate::repository::OpenOptions {
-                inner: r.open_options().clone(),
+                inner: r.open_options().clone_without_trust(),
+                open_path_as_is: false,
             })
         })
     }

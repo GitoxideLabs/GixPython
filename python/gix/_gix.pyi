@@ -34,7 +34,7 @@ from ._pathspec import (
     PathspecPattern as PathspecPattern, PathspecMatch as PathspecMatch, PathspecPatterns as PathspecPatterns, PathspecEntries as PathspecEntries, PathspecSearch as PathspecSearch, Pathspec as Pathspec, PathspecDefaults as PathspecDefaults, PathspecRepository as _PathspecRepository
 )
 from ._merge import (
-    TreatAsUnresolved as TreatAsUnresolved, TreeMergeOptions as TreeMergeOptions, CommitMergeOptions as CommitMergeOptions, MergeLabels as MergeLabels, MergeConflict as MergeConflict, MergeIndexEntry as MergeIndexEntry, ContentMerge as ContentMerge, TreeMergeOutcome as TreeMergeOutcome, CommitMergeOutcome as CommitMergeOutcome, VirtualMergeBase as VirtualMergeBase, _RepositoryMerge as _RepositoryMerge
+    TreatAsUnresolved as TreatAsUnresolved, TreeMergeOptions as TreeMergeOptions, CommitMergeOptions as CommitMergeOptions, MergeLabels as MergeLabels, MergeConflict as MergeConflict, ContentMerge as ContentMerge, TreeMergeOutcome as TreeMergeOutcome, CommitMergeOutcome as CommitMergeOutcome, VirtualMergeBase as VirtualMergeBase, _RepositoryMerge as _RepositoryMerge
 )
 from ._blame import (
     BlameOptions as BlameOptions, BlameEntry as BlameEntry, BlameOutcome as BlameOutcome, BlameLines as BlameLines, _RepositoryBlame as _RepositoryBlame

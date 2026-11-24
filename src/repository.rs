@@ -275,9 +275,27 @@ impl Repository {
 }
 
 #[pyclass(module = "gix", from_py_object)]
-#[derive(Clone, Default)]
+#[derive(Default)]
 pub struct OpenOptions {
     pub inner: gix::open::Options,
+    pub(crate) open_path_as_is: bool,
+}
+
+impl Clone for OpenOptions {
+    fn clone(&self) -> Self {
+        Self {
+            inner: self.inner.clone_without_trust().open_path_as_is(self.open_path_as_is),
+            open_path_as_is: self.open_path_as_is,
+        }
+    }
+}
+
+impl OpenOptions {
+    fn modified(&self, change: impl FnOnce(gix::open::Options) -> gix::open::Options) -> Self {
+        let mut options = self.clone();
+        options.inner.modify(change);
+        options
+    }
 }
 
 #[pymethods]
@@ -290,37 +308,29 @@ impl OpenOptions {
     fn isolated() -> Self {
         Self {
             inner: gix::open::Options::isolated(),
+            open_path_as_is: false,
         }
     }
     fn config_overrides(&self, values: Vec<String>) -> Self {
-        Self {
-            inner: self.inner.clone().config_overrides(values),
-        }
+        self.modified(|options| options.config_overrides(values))
     }
     fn cli_overrides(&self, values: Vec<String>) -> Self {
-        Self {
-            inner: self.inner.clone().cli_overrides(values),
-        }
+        self.modified(|options| options.cli_overrides(values))
     }
     fn open_path_as_is(&self, enable: bool) -> Self {
         Self {
-            inner: self.inner.clone().open_path_as_is(enable),
+            inner: self.inner.clone_without_trust().open_path_as_is(enable),
+            open_path_as_is: enable,
         }
     }
     fn bail_if_untrusted(&self, enable: bool) -> Self {
-        Self {
-            inner: self.inner.clone().bail_if_untrusted(enable),
-        }
+        self.modified(|options| options.bail_if_untrusted(enable))
     }
     fn strict_config(&self, enable: bool) -> Self {
-        Self {
-            inner: self.inner.clone().strict_config(enable),
-        }
+        self.modified(|options| options.strict_config(enable))
     }
     fn lossy_config(&self, enable: bool) -> Self {
-        Self {
-            inner: self.inner.clone().lossy_config(enable),
-        }
+        self.modified(|options| options.lossy_config(enable))
     }
     fn open(&self, py: Python<'_>, path: PathBuf) -> PyResult<Repository> {
         open_opts(py, path, self.clone())

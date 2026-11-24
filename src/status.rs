@@ -106,7 +106,10 @@ impl StatusItem {
 fn index_change<'py>(py: Python<'py>, change: &gix::diff::index::Change) -> PyResult<Bound<'py, PyDict>> {
     use gix::diff::index::Change;
     let out = PyDict::new(py);
-    let (location, index, mode, id) = change.fields();
+    let (location, index, mode, id) = change
+        .rhs_fields()
+        .or_else(|| change.lhs_fields())
+        .ok_or_else(|| PyRuntimeError::new_err("index change has no entries"))?;
     out.set_item("location", PyBytes::new(py, location))?;
     out.set_item("index", index)?;
     out.set_item("entry_mode", mode.bits())?;
@@ -269,7 +272,7 @@ fn worktree_item<'py>(py: Python<'py>, item: &gix::status::index_worktree::Item)
             dirwalk_entry,
             dirwalk_entry_collapsed_directory_status,
             dirwalk_entry_id,
-            diff,
+            similarity,
             copy,
         } => {
             out.set_item("kind", "Rewrite")?;
@@ -278,18 +281,9 @@ fn worktree_item<'py>(py: Python<'py>, item: &gix::status::index_worktree::Item)
                 "dirwalk_entry_collapsed_directory_status",
                 dirwalk_entry_collapsed_directory_status.map(|v| format!("{v:?}")),
             )?;
-            out.set_item(
-                "dirwalk_entry_id",
-                ObjectId {
-                    inner: *dirwalk_entry_id,
-                },
-            )?;
+            out.set_item("dirwalk_entry_id", dirwalk_entry_id.map(|inner| ObjectId { inner }))?;
             out.set_item("copy", copy)?;
-            out.set_item(
-                "diff",
-                diff.as_ref()
-                    .map(|v| (v.removals, v.insertions, v.before, v.after, v.similarity)),
-            )?;
+            out.set_item("similarity", similarity.map(|v| v.fraction()))?;
             let source_out = PyDict::new(py);
             match source {
                 RewriteSource::RewriteFromIndex {
@@ -323,9 +317,7 @@ fn worktree_item<'py>(py: Python<'py>, item: &gix::status::index_worktree::Item)
                     )?;
                     source_out.set_item(
                         "source_dirwalk_entry_id",
-                        ObjectId {
-                            inner: *source_dirwalk_entry_id,
-                        },
+                        source_dirwalk_entry_id.map(|inner| ObjectId { inner }),
                     )?;
                 }
             }

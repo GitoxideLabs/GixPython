@@ -73,6 +73,11 @@ published, including the fixture symlink preflight. Packaged provenance reports
 Every build enables `gix/zlib-sirocco`, including reduced feature selections.
 The local checkout selector continues using command-local crates.io patches.
 
+The next packaged build uses `gix 0.91.0`, `gix-archive 0.40.0` and
+`gix-testtools 0.23.0` on Rust 1.95 or newer. Python merge results retain the
+native index plan so callers can construct the staged merge index independently
+of edits to the provisional result tree.
+
 ## Acceptance
 
 Native `gix-testtools` fixtures are available through `gix.testtools`, with

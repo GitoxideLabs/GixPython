@@ -132,6 +132,7 @@ class TesttoolsTests(unittest.TestCase):
             self.run_fixture_test("""
                 import os
                 from pathlib import Path
+                import gix
                 from gix import testtools as t
                 os.environ.pop("GIX_TEST_IGNORE_ARCHIVES", None)
                 os.environ["GIX_TEST_CREATE_ARCHIVES_EVEN_ON_CI"] = "1"
@@ -141,7 +142,8 @@ class TesttoolsTests(unittest.TestCase):
                     return "created"
                 path, value = t.rust_fixture_read_only("archive", 1, create)
                 assert value == "created"
-                assert Path("tests/fixtures/generated-archives/rust-archive.tar").is_file()
+                hash_name = "sha1" if gix.HashKind.SHA1 is not None else "sha256"
+                assert Path(f"tests/fixtures/generated-archives/rust-archive_{hash_name}.tar").is_file()
             """, directory)
             shutil.rmtree(Path(directory) / "tests/fixtures/generated-do-not-edit")
             self.run_fixture_test("""

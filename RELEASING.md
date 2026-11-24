@@ -10,7 +10,7 @@ The release contains four wheels and one source archive:
 
 All wheels use the default `max-pure` features, including both hash kinds.
 Linux and Windows are portability checks only; they have no supported release wheels.
-Source builds require Rust 1.89+, a linker, and access to the pinned Rust dependencies.
+Source builds require Rust 1.95+, a linker, and access to the pinned Rust dependencies.
 
 ## One-time maintainer setup
 

@@ -1,7 +1,7 @@
 # Native API coverage
 
 GixPython wraps Gitoxide's repository operations and the objects they return.
-The source baseline is [`gix 0.90.0`](https://docs.rs/gix/0.90.0/gix/), which
+The source baseline is [`gix 0.91.0`](https://docs.rs/gix/0.91.0/gix/), which
 includes all formerly vendored prerequisites.
 This is broad coverage of the native engine, not a claim to implement every
 command available in the Git executable or every generic Rust helper.

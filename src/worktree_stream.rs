@@ -5,7 +5,7 @@ use crate::{
     index::IndexFile,
     repository::{RepoHandle, Repository},
     runtime::{CancellationToken, CommandOwner, IterProducer, Progress},
-    types::{HashKind, ObjectId, ObjectSpec, bytes},
+    types::{ObjectId, ObjectSpec, bytes},
 };
 use pyo3::{exceptions::PyValueError, prelude::*, types::PyBytes};
 use std::{
@@ -21,7 +21,7 @@ type Owner = CommandOwner<Command, Reply>;
 #[derive(Clone)]
 struct EntryInfo {
     generation: u64,
-    id: gix::ObjectId,
+    id: Option<gix::ObjectId>,
     mode: u16,
     path: Vec<u8>,
 }
@@ -31,7 +31,7 @@ enum Command {
     Read(u64, Option<usize>),
     Remaining(u64),
     Add(AdditionalEntry),
-    AddPath(PathBuf, PathBuf, gix::hash::Kind),
+    AddPath(PathBuf, PathBuf),
     #[cfg(feature = "worktree-archive")]
     Archive(PathBuf, ArchiveOptions),
 }
@@ -94,7 +94,7 @@ impl StreamSource {
 #[pyclass(frozen, module = "gix", from_py_object)]
 #[derive(Clone)]
 pub struct AdditionalEntry {
-    id: gix::ObjectId,
+    id: Option<gix::ObjectId>,
     mode: gix::objs::tree::EntryMode,
     path: Vec<u8>,
     source: Source,
@@ -102,9 +102,9 @@ pub struct AdditionalEntry {
 #[pymethods]
 impl AdditionalEntry {
     #[new]
-    fn new(id: ObjectId, mode: u16, relative_path: &Bound<'_, PyAny>, source: StreamSource) -> PyResult<Self> {
+    fn new(id: Option<ObjectId>, mode: u16, relative_path: &Bound<'_, PyAny>, source: StreamSource) -> PyResult<Self> {
         Ok(Self {
-            id: id.inner,
+            id: id.map(|id| id.inner).filter(|id| !id.is_null()),
             mode: u32::from(mode)
                 .try_into()
                 .map_err(|_| PyValueError::new_err("invalid Git tree entry mode"))?,
@@ -158,8 +158,8 @@ impl WorktreeStreamEntry {
 #[pymethods]
 impl WorktreeStreamEntry {
     #[getter]
-    fn id(&self) -> ObjectId {
-        ObjectId { inner: self.info.id }
+    fn id(&self) -> Option<ObjectId> {
+        self.info.id.map(|inner| ObjectId { inner })
     }
     #[getter]
     fn mode(&self) -> u16 {
@@ -239,8 +239,8 @@ impl WorktreeStream {
             _ => Err(wrong_reply()),
         }
     }
-    fn add_entry_from_path(&self, py: Python<'_>, root: PathBuf, path: PathBuf, object_hash: HashKind) -> PyResult<()> {
-        match self.owner.call(py, Command::AddPath(root, path, object_hash.inner))? {
+    fn add_entry_from_path(&self, py: Python<'_>, root: PathBuf, path: PathBuf) -> PyResult<()> {
+        match self.owner.call(py, Command::AddPath(root, path))? {
             Reply::Done => Ok(()),
             _ => Err(wrong_reply()),
         }
@@ -310,9 +310,9 @@ fn create_stream(
                                 break;
                             }
                         }
-                        Command::AddPath(root, path, hash) => {
+                        Command::AddPath(root, path) => {
                             let result = native
-                                .add_entry_from_path(&root, &path, hash)
+                                .add_entry_from_path(&root, &path)
                                 .map(|_| Reply::Done)
                                 .map_err(to_py);
                             if !producer.send(result) {

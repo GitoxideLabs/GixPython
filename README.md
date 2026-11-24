@@ -45,11 +45,11 @@ Install the latest published version with:
 python -m pip install --only-binary=:all: GixPython
 ```
 
-Wheels include the native Rust extension; installation needs no Rust or C compiler. Source builds require Rust 1.89+, a linker, and network access to Rust dependencies.
+Wheels include the native Rust extension; installation needs no Rust or C compiler. Source builds require Rust 1.95+, a linker, and network access to Rust dependencies.
 
 ## Build locally
 
-Use CPython 3.11 or newer, Rust 1.89 or newer, and a system linker:
+Use CPython 3.11 or newer, Rust 1.95 or newer, and a system linker:
 
 ```sh
 python3 etc/build.py
