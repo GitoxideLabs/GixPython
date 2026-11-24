@@ -7,6 +7,19 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## Unreleased
 
+## 0.4.0 (2026-11-24)
+
+### Breaking Changes
+
+ - Upgrade to `gix 0.91.0`, `gix-archive 0.40.0`, and `gix-testtools 0.23.0`.
+   Source builds require Rust 1.95.
+ - Use `TreeMergeOutcome.index_file()` for the full merged index, including
+   unresolved stages. The native index plan replaces per-conflict index edits.
+ - Rewrite details provide native similarity scores. Compute patch line counts
+   separately through `BlobDiff.line_counts()`.
+ - Missing resource and stream IDs use `None`. `add_entry_from_path()` takes
+   a root and path. `Submodule.work_dir()` returns `None` without a worktree.
+
 ## 0.3.0 (2026-10-24)
 
 ### Other

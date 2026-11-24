@@ -1,5 +1,14 @@
 # Local validation
 
+## Version 0.4.0 preparation (2026-11-24)
+
+The release metadata check accepts `v0.4.0`. The nine helper tests, Rust
+formatting, and locked offline Cargo metadata checks pass. On Apple Silicon,
+the packaged-dependency extension builds offline with C/C++ compilers disabled
+and reports `0.4.0`. The CPython 3.12.14 integration suite passed 111 tests
+with two skips. The Release workflow covers the four macOS wheels and the
+source archive.
+
 ## Version 0.3.0 preparation (2026-10-24)
 
 The manifest, root lockfile package, locked offline Cargo metadata, and

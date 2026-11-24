@@ -210,12 +210,12 @@ impl MergeResourceCache {
     fn set_resource(
         &self,
         py: Python<'_>,
-        id: &Bound<'_, PyAny>,
+        id: Option<&Bound<'_, PyAny>>,
         mode: u32,
         rela_path: &Bound<'_, PyAny>,
         kind: &str,
     ) -> PyResult<()> {
-        let id = ObjectSpec::extract(id)?;
+        let id = id.map(ObjectSpec::extract).transpose()?;
         let path = bytes(rela_path)?;
         let kind = resource_kind(kind)?;
         let mode = gix::objs::tree::EntryMode::try_from(mode)
@@ -223,7 +223,13 @@ impl MergeResourceCache {
             .kind();
         self.with(py, move |cache, repo| {
             cache
-                .set_resource(id.resolve(repo)?, mode, path.as_bstr(), kind, &repo.objects)
+                .set_resource(
+                    id.map(|id| id.resolve(repo)).transpose()?.filter(|id| !id.is_null()),
+                    mode,
+                    path.as_bstr(),
+                    kind,
+                    &repo.objects,
+                )
                 .map_err(to_py)
         })
     }
@@ -347,7 +353,7 @@ pub struct MergeResource {
     owner: Arc<Owner>,
     role: blob::ResourceKind,
     #[pyo3(get)]
-    id: ObjectId,
+    id: Option<ObjectId>,
     path: Vec<u8>,
     #[pyo3(get)]
     kind: &'static str,
@@ -393,7 +399,12 @@ impl PreparedMerge {
                 Data::Buffer(v) => ("Buffer", Some(v.len() as u64)),
                 Data::TooLarge { size } => ("TooLarge", Some(size)),
             };
-            Ok((ObjectId { inner: r.id.to_owned() }, r.rela_path.to_vec(), kind, size))
+            Ok((
+                r.id.map(|id| ObjectId { inner: id.to_owned() }),
+                r.rela_path.to_vec(),
+                kind,
+                size,
+            ))
         })?;
         Ok(MergeResource {
             owner: self.owner.clone(),
@@ -494,9 +505,17 @@ impl PreparedMerge {
     fn buffer_by_pick<'py>(&self, py: Python<'py>, value: &str) -> PyResult<Option<Bound<'py, PyBytes>>> {
         let pick = pick(value)?;
         let out = call(&self.owner, py, move |p, _| {
-            p.buffer_by_pick(pick)
-                .map(|v| v.map(|b| b.to_vec()))
-                .map_err(|()| PyValueError::new_err("selected merge resource exceeds the large-file threshold"))
+            use blob::platform::resource::Data;
+            match pick {
+                Pick::Buffer => Ok(None),
+                _ => match p.data_by_pick(pick, &[]) {
+                    Data::Missing => Ok(None),
+                    Data::Buffer(data) => Ok(Some(data.to_vec())),
+                    Data::TooLarge { .. } => Err(PyValueError::new_err(
+                        "selected merge resource exceeds the large-file threshold",
+                    )),
+                },
+            }
         })?;
         Ok(out.map(|v| PyBytes::new(py, &v)))
     }

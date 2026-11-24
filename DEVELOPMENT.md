@@ -10,8 +10,8 @@ GitHub CI setup is authorized for this repository, including pushing the committ
 
 ## Native upstream integration
 
-The manifest uses crates.io releases `gix 0.90.0`, `gix-archive 0.39.0`, and
-`gix-testtools 0.22.0`. These include the Python binding prerequisites merged
+The manifest uses crates.io releases `gix 0.91.0`, `gix-archive 0.40.0`, and
+`gix-testtools 0.23.0`. These include the Python binding prerequisites merged
 in [Gitoxide PR #3054](https://github.com/GitoxideLabs/gitoxide/pull/3054).
 No vendored crates or Cargo patches are needed. The integrated fixes provide:
 
@@ -35,7 +35,7 @@ PYTHONPATH=python python3 -m unittest discover -s tests
 ```
 
 This mode needs Cargo 1.97+ for its separate lockfile. Ordinary builds retain the
-Rust 1.89 minimum. `--gitoxide-path PATH` overrides the environment selection;
+Rust 1.95 minimum. `--gitoxide-path PATH` overrides the environment selection;
 `--packaged` ignores it and builds the pinned release dependencies. The two flags
 are mutually exclusive. Invalid checkouts, older Cargo, and failed builds stop
 with an error; they never fall back to release dependencies.
@@ -51,8 +51,8 @@ Local `gix.__gix_revision__` reports checkout HEAD. Uncommitted changes are incl
 in the build but do not change that revision string. Every local invocation reads
 HEAD again; Cargo tracks the revision environment value to rebuild provenance
 when switching checkouts or returning to packaged mode. Packaged builds report
-`dd39fb66e3b1551c9fe849043e39b357a9799ca1`, the source revision recorded in
-the published `gix 0.90.0` crate.
+`541b4db0a59644b617a8b706b83af23e0b17f7f3`, the source revision recorded in
+the published `gix 0.91.0` crate.
 
 Continue using the local switch for upstream development with compatible crate
 versions. The local selector derives patch sources from the manifest and uses

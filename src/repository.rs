@@ -70,6 +70,10 @@ impl RepoHandle {
             mutation: AtomicBool::new(false),
         }))
     }
+    #[cfg(feature = "merge")]
+    pub(crate) fn is_in_memory(&self) -> bool {
+        self.0.in_memory
+    }
     pub fn with<T>(&self, work: impl FnOnce(&gix::Repository) -> PyResult<T>) -> PyResult<T> {
         if self.0.in_memory {
             let mut memory = self
@@ -277,7 +281,50 @@ impl Repository {
 #[pyclass(module = "gix", from_py_object)]
 #[derive(Clone, Default)]
 pub struct OpenOptions {
-    pub inner: gix::open::Options,
+    base: Option<Arc<gix::open::Options>>,
+    isolated: bool,
+    config_overrides: Option<Vec<String>>,
+    cli_overrides: Option<Vec<String>>,
+    open_path_as_is: Option<bool>,
+    bail_if_untrusted: Option<bool>,
+    strict_config: Option<bool>,
+    lossy_config: Option<bool>,
+}
+
+impl OpenOptions {
+    pub(crate) fn from_native(options: &gix::open::Options) -> Self {
+        Self {
+            base: Some(Arc::new(options.clone_without_trust())),
+            ..Self::default()
+        }
+    }
+
+    pub(crate) fn into_native(self) -> gix::open::Options {
+        let mut options = match self.base {
+            Some(base) => base.clone_without_trust(),
+            None if self.isolated => gix::open::Options::isolated(),
+            None => gix::open::Options::default(),
+        };
+        if let Some(values) = self.config_overrides {
+            options = options.config_overrides(values);
+        }
+        if let Some(values) = self.cli_overrides {
+            options = options.cli_overrides(values);
+        }
+        if let Some(enable) = self.open_path_as_is {
+            options = options.open_path_as_is(enable);
+        }
+        if let Some(enable) = self.bail_if_untrusted {
+            options = options.bail_if_untrusted(enable);
+        }
+        if let Some(enable) = self.strict_config {
+            options = options.strict_config(enable);
+        }
+        if let Some(enable) = self.lossy_config {
+            options = options.lossy_config(enable);
+        }
+        options
+    }
 }
 
 #[pymethods]
@@ -289,37 +336,44 @@ impl OpenOptions {
     #[staticmethod]
     fn isolated() -> Self {
         Self {
-            inner: gix::open::Options::isolated(),
+            isolated: true,
+            ..Self::default()
         }
     }
     fn config_overrides(&self, values: Vec<String>) -> Self {
         Self {
-            inner: self.inner.clone().config_overrides(values),
+            config_overrides: Some(values),
+            ..self.clone()
         }
     }
     fn cli_overrides(&self, values: Vec<String>) -> Self {
         Self {
-            inner: self.inner.clone().cli_overrides(values),
+            cli_overrides: Some(values),
+            ..self.clone()
         }
     }
     fn open_path_as_is(&self, enable: bool) -> Self {
         Self {
-            inner: self.inner.clone().open_path_as_is(enable),
+            open_path_as_is: Some(enable),
+            ..self.clone()
         }
     }
     fn bail_if_untrusted(&self, enable: bool) -> Self {
         Self {
-            inner: self.inner.clone().bail_if_untrusted(enable),
+            bail_if_untrusted: Some(enable),
+            ..self.clone()
         }
     }
     fn strict_config(&self, enable: bool) -> Self {
         Self {
-            inner: self.inner.clone().strict_config(enable),
+            strict_config: Some(enable),
+            ..self.clone()
         }
     }
     fn lossy_config(&self, enable: bool) -> Self {
         Self {
-            inner: self.inner.clone().lossy_config(enable),
+            lossy_config: Some(enable),
+            ..self.clone()
         }
     }
     fn open(&self, py: Python<'_>, path: PathBuf) -> PyResult<Repository> {
@@ -336,7 +390,7 @@ fn open(py: Python<'_>, path: PathBuf) -> PyResult<Repository> {
 #[pyfunction]
 fn open_opts(py: Python<'_>, path: PathBuf, options: OpenOptions) -> PyResult<Repository> {
     runtime::run(py, "open", None, None, move |_| {
-        gix::open_opts(path, options.inner)
+        gix::open_opts(path, options.into_native())
             .map(Repository::from_native)
             .map_err(to_py)
     })?
@@ -350,7 +404,7 @@ fn discover(py: Python<'_>, path: PathBuf) -> PyResult<Repository> {
 #[pyfunction]
 fn discover_opts(py: Python<'_>, path: PathBuf, options: OpenOptions) -> PyResult<Repository> {
     runtime::run(py, "discover", None, None, move |_| {
-        gix::discover_opts(path, Default::default(), options.inner)
+        gix::discover_opts(path, Default::default(), options.into_native())
             .map(Repository::from_native)
             .map_err(to_py)
     })?
@@ -399,7 +453,7 @@ fn init_inner(
         if let Some(hash) = hash {
             create.object_hash = Some(hash.inner);
         }
-        gix::ThreadSafeRepository::init_opts(path, kind, create, options.unwrap_or_default().inner)
+        gix::ThreadSafeRepository::init_opts(path, kind, create, options.unwrap_or_default().into_native())
             .map(|r| Repository::from_native(r.to_thread_local()))
             .map_err(to_py)
     })?

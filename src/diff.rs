@@ -83,10 +83,6 @@ impl DiffLineStats {
     fn after(&self) -> usize {
         self.inner.after
     }
-    #[getter]
-    fn similarity(&self) -> f32 {
-        self.inner.similarity
-    }
 }
 
 #[pyclass(frozen, module = "gix")]
@@ -145,7 +141,7 @@ impl TreeChange {
                 source_relation,
                 source_entry_mode,
                 source_id,
-                diff,
+                similarity,
                 relation,
                 copy,
                 ..
@@ -154,7 +150,7 @@ impl TreeChange {
                 out.set_item("source_relation", source_relation.map(|v| format!("{v:?}")))?;
                 out.set_item("source_entry_mode", source_entry_mode.value())?;
                 out.set_item("source_id", ObjectId { inner: *source_id })?;
-                out.set_item("diff", diff.map(|inner| DiffLineStats { inner }))?;
+                out.set_item("similarity", similarity.map(|v| v.fraction()))?;
                 out.set_item("relation", relation.map(|v| format!("{v:?}")))?;
                 out.set_item("copy", copy)?;
             }
@@ -213,12 +209,12 @@ impl DiffResourceCache {
     fn set_resource(
         &self,
         py: Python<'_>,
-        id: &Bound<'_, PyAny>,
+        id: Option<&Bound<'_, PyAny>>,
         mode: u32,
         rela_path: &Bound<'_, PyAny>,
         kind: &str,
     ) -> PyResult<()> {
-        let id = ObjectSpec::extract(id)?;
+        let id = id.map(ObjectSpec::extract).transpose()?;
         let path = bytes(rela_path)?;
         let kind = resource_kind(kind)?;
         let mode = gix::objs::tree::EntryMode::try_from(mode)
@@ -226,7 +222,13 @@ impl DiffResourceCache {
             .kind();
         self.with(py, move |cache, repo| {
             cache
-                .set_resource(id.resolve(repo)?, mode, path.as_bstr(), kind, &repo.objects)
+                .set_resource(
+                    id.map(|id| id.resolve(repo)).transpose()?.filter(|id| !id.is_null()),
+                    mode,
+                    path.as_bstr(),
+                    kind,
+                    &repo.objects,
+                )
                 .map_err(exn_to_py)
         })
     }
@@ -256,7 +258,7 @@ impl DiffResourceCache {
 #[derive(Clone)]
 pub struct DiffResource {
     #[pyo3(get)]
-    pub id: ObjectId,
+    pub id: Option<ObjectId>,
     path: Vec<u8>,
     data: Option<Vec<u8>>,
     #[pyo3(get)]
@@ -280,9 +282,7 @@ impl DiffResource {
             Data::Binary { size } => ("Binary", Some(size)),
         };
         Self {
-            id: ObjectId {
-                inner: resource.id.to_owned(),
-            },
+            id: resource.id.map(|id| ObjectId { inner: id.to_owned() }),
             path: resource.rela_path.to_vec(),
             data: resource.data.as_slice().map(|v| v.to_vec()),
             mode: resource.mode as u32,
@@ -325,8 +325,9 @@ impl PreparedDiff {
     fn from_native(out: gix::diff::blob::platform::prepare_diff::Outcome<'_>) -> Self {
         use gix::diff::blob::platform::prepare_diff::Operation;
         let (operation, algorithm, command) = match out.operation {
-            Operation::InternalDiff { algorithm } => ("InternalDiff", Some(format!("{algorithm:?}")), None),
-            Operation::ExternalCommand { command } => ("ExternalCommand", None, Some(command.to_vec())),
+            Operation::InternalDiff { algorithm, .. } => ("InternalDiff", Some(format!("{algorithm:?}")), None),
+            Operation::ExternalCommand { command, .. } => ("ExternalCommand", None, Some(command.to_vec())),
+            Operation::NeitherExists => ("NeitherExists", None, None),
             Operation::SourceOrDestinationIsBinary => ("SourceOrDestinationIsBinary", None, None),
         };
         Self {
@@ -436,10 +437,10 @@ impl BlobDiff {
                         .map_err(exn_to_py)?;
                     cache.options.skip_internal_diff_if_external_is_configured = false;
                     let prepared = cache.prepare_diff().map_err(exn_to_py)?;
-                    if let gix::diff::blob::platform::prepare_diff::Operation::InternalDiff { algorithm } =
+                    if let gix::diff::blob::platform::prepare_diff::Operation::InternalDiff { algorithm, change } =
                         prepared.operation
                     {
-                        let input = prepared.interned_input();
+                        let input = change.patch_input();
                         let diff = gix::diff::blob::diff_with_slider_heuristics(algorithm, &input);
                         producer.serve(diff.hunks().map(|hunk| {
                             Ok(DiffHunk {

@@ -2,9 +2,9 @@ use crate::{
     diff::TreeChange,
     diff_options::Rewrites,
     error::to_py,
-    index::IndexFile,
+    index::{IndexFile, IndexSnapshot},
     objects::TreeEditor,
-    repository::Repository,
+    repository::{RepoHandle, Repository},
     runtime::{self, CancellationToken, Progress},
     types::{ObjectId, ObjectSpec, bytes},
 };
@@ -168,13 +168,6 @@ impl MergeConflict {
     fn is_unresolved(&self, how: TreatAsUnresolved) -> bool {
         self.inner.is_unresolved(how.inner)
     }
-    fn entries(&self) -> Vec<Option<MergeIndexEntry>> {
-        self.inner
-            .entries()
-            .into_iter()
-            .map(|v| v.map(|inner| MergeIndexEntry { inner }))
-            .collect()
-    }
     fn content_merge(&self) -> Option<ContentMerge> {
         self.inner.content_merge().map(|inner| ContentMerge { inner })
     }
@@ -202,6 +195,9 @@ impl MergeConflict {
                 out.set_item("kind", "OursModifiedTheirsModifiedThenBlobContentMerge")?;
                 out.set_item("merged_blob", ContentMerge { inner: *merged_blob })?;
             }
+            Ok(Resolution::OursModifiedTheirsModifiedThenAncestor) => {
+                out.set_item("kind", "OursModifiedTheirsModifiedThenAncestor")?;
+            }
             Ok(Resolution::Forced(failure)) => {
                 out.set_item("kind", "Forced")?;
                 let fields = PyDict::new(py);
@@ -220,6 +216,55 @@ fn failure_fields(
 ) -> PyResult<()> {
     use gix::merge::tree::ResolutionFailure::*;
     let kind = match failure {
+        ModeConflict { merged_blob } => {
+            out.set_item("merged_blob", merged_blob.map(|inner| ContentMerge { inner }))?;
+            "ModeConflict"
+        }
+        DirectoryRename {
+            final_location,
+            merged_blob,
+        } => {
+            out.set_item("final_location", PyBytes::new(py, final_location))?;
+            out.set_item("merged_blob", merged_blob.map(|inner| ContentMerge { inner }))?;
+            "DirectoryRename"
+        }
+        DirectoryRenameSplit {
+            source_location,
+            destinations,
+        } => {
+            out.set_item("source_location", PyBytes::new(py, source_location))?;
+            out.set_item(
+                "destinations",
+                destinations.iter().map(|v| PyBytes::new(py, v)).collect::<Vec<_>>(),
+            )?;
+            "DirectoryRenameSplit"
+        }
+        DirectoryRenameBlocked {
+            original_paths,
+            final_location,
+        }
+        | DirectoryRenameCollision {
+            original_paths,
+            final_location,
+        } => {
+            out.set_item(
+                "original_paths",
+                original_paths.iter().map(|v| PyBytes::new(py, v)).collect::<Vec<_>>(),
+            )?;
+            out.set_item("final_location", PyBytes::new(py, final_location))?;
+            match failure {
+                DirectoryRenameBlocked { .. } => "DirectoryRenameBlocked",
+                _ => "DirectoryRenameCollision",
+            }
+        }
+        DistinctTypes {
+            our_location,
+            their_location,
+        } => {
+            out.set_item("our_location", PyBytes::new(py, our_location))?;
+            out.set_item("their_location", PyBytes::new(py, their_location))?;
+            "DistinctTypes"
+        }
         SubmoduleMerge => "SubmoduleMerge",
         SubmoduleAddAdd => "SubmoduleAddAdd",
         OursRenamedTheirsRenamedToSameLocation => "OursRenamedTheirsRenamedToSameLocation",
@@ -257,21 +302,6 @@ fn failure_fields(
     out.set_item("kind", kind)
 }
 #[pyclass(frozen, module = "gix")]
-pub struct MergeIndexEntry {
-    inner: gix::merge::plumbing::tree::ConflictIndexEntry,
-}
-#[pymethods]
-impl MergeIndexEntry {
-    #[getter]
-    fn id(&self) -> ObjectId {
-        ObjectId { inner: self.inner.id }
-    }
-    #[getter]
-    fn mode(&self) -> u16 {
-        self.inner.mode.value()
-    }
-}
-#[pyclass(frozen, module = "gix")]
 pub struct ContentMerge {
     inner: gix::merge::tree::ContentMerge,
 }
@@ -289,9 +319,34 @@ impl ContentMerge {
     }
 }
 
+#[derive(Clone)]
+pub(crate) struct MergeIndex {
+    plan: Arc<gix::merge::tree::IndexPlan>,
+    how: TreatAsUnresolved,
+    existing: Option<IndexSnapshot>,
+}
+
+impl MergeIndex {
+    pub(crate) fn build(self, repo: &gix::Repository) -> PyResult<IndexFile> {
+        // The merge plan supplies the index contents. The editor supplies the native path-validation policy.
+        let outcome = gix::merge::tree::Outcome {
+            tree: repo.empty_tree().edit().map_err(to_py)?,
+            index: Arc::unwrap_or_clone(self.plan),
+            conflicts: Vec::new(),
+            failed_on_first_unresolved_conflict: false,
+        };
+        outcome
+            .index_file(self.how.inner, self.existing.as_deref().map(|file| &**file))
+            .map(IndexFile::from_native)
+            .map_err(to_py)
+    }
+}
+
 #[pyclass(frozen, module = "gix")]
 pub struct TreeMergeOutcome {
     tree: Py<TreeEditor>,
+    handle: RepoHandle,
+    index: Arc<gix::merge::tree::IndexPlan>,
     conflicts: Arc<Vec<gix::merge::tree::Conflict>>,
     failed: bool,
 }
@@ -314,28 +369,22 @@ impl TreeMergeOutcome {
         self.failed
     }
     fn has_unresolved_conflicts(&self, how: TreatAsUnresolved) -> bool {
-        self.conflicts.iter().any(|c| c.is_unresolved(how.inner))
+        self.index.has_unresolved_conflicts(how.inner)
     }
-    #[pyo3(signature=(index,how,removal_mode="prune"))]
-    fn index_changed_after_applying_conflicts(
-        &self,
-        py: Python<'_>,
-        index: &IndexFile,
-        how: TreatAsUnresolved,
-        removal_mode: &str,
-    ) -> PyResult<bool> {
-        use gix::merge::tree::apply_index_entries::RemovalMode;
-        let mode = match removal_mode {
-            "prune" => RemovalMode::Prune,
-            "mark" => RemovalMode::Mark,
-            _ => return Err(PyValueError::new_err("removal_mode must be prune or mark")),
+    #[pyo3(signature = (how, existing=None))]
+    fn index_file(&self, py: Python<'_>, how: TreatAsUnresolved, existing: Option<&IndexFile>) -> PyResult<IndexFile> {
+        let request = MergeIndex {
+            plan: self.index.clone(),
+            how,
+            existing: existing.map(IndexFile::snapshot).transpose()?,
         };
-        let conflicts = self.conflicts.clone();
-        index.mutate(py, move |index| {
-            Ok(gix::merge::tree::apply_index_entries(
-                &conflicts, how.inner, index, mode,
-            ))
-        })
+        // An in-memory repository stays on the editor worker until the editor closes.
+        if self.handle.is_in_memory()
+            && let Some(index) = self.tree.borrow(py).try_merge_index(py, request.clone())?
+        {
+            return Ok(index);
+        }
+        self.handle.run(py, move |repo| request.build(repo))
     }
 }
 #[pyclass(frozen, module = "gix")]
@@ -400,16 +449,22 @@ impl Repository {
                     options,
                 )
                 .map_err(to_py)?;
-            *result.lock().map_err(to_py)? = Some((outcome.conflicts, outcome.failed_on_first_unresolved_conflict));
+            *result.lock().map_err(to_py)? = Some((
+                outcome.index,
+                outcome.conflicts,
+                outcome.failed_on_first_unresolved_conflict,
+            ));
             Ok(outcome.tree)
         })?;
-        let (conflicts, failed) = metadata
+        let (index, conflicts, failed) = metadata
             .lock()
             .map_err(to_py)?
             .take()
             .ok_or_else(|| PyRuntimeError::new_err("merge returned no metadata"))?;
         Ok(TreeMergeOutcome {
             tree: Py::new(py, editor)?,
+            handle: self.handle.clone(),
+            index: Arc::new(index),
             conflicts: Arc::new(conflicts),
             failed,
         })
@@ -444,6 +499,7 @@ impl Repository {
                 )
                 .map_err(to_py)?;
             *result.lock().map_err(to_py)? = Some((
+                outcome.tree_merge.index,
                 outcome.tree_merge.conflicts,
                 outcome.tree_merge.failed_on_first_unresolved_conflict,
                 outcome.merge_base_tree_id,
@@ -452,7 +508,7 @@ impl Repository {
             ));
             Ok(outcome.tree_merge.tree)
         })?;
-        let (conflicts, failed, base, bases, virtuals) = metadata
+        let (index, conflicts, failed, base, bases, virtuals) = metadata
             .lock()
             .map_err(to_py)?
             .take()
@@ -462,6 +518,8 @@ impl Repository {
                 py,
                 TreeMergeOutcome {
                     tree: Py::new(py, editor)?,
+                    handle: self.handle.clone(),
+                    index: Arc::new(index),
                     conflicts: Arc::new(conflicts),
                     failed,
                 },
@@ -517,7 +575,6 @@ pub fn register(m: &Bound<'_, PyModule>) -> PyResult<()> {
     m.add_class::<CommitMergeOptions>()?;
     m.add_class::<MergeLabels>()?;
     m.add_class::<MergeConflict>()?;
-    m.add_class::<MergeIndexEntry>()?;
     m.add_class::<ContentMerge>()?;
     m.add_class::<TreeMergeOutcome>()?;
     m.add_class::<CommitMergeOutcome>()?;

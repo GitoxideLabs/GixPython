@@ -579,6 +579,10 @@ impl<C: Send + 'static, R: Send + 'static> CommandOwner<C, R> {
         }
     }
     pub fn call(&self, py: Python<'_>, command: C) -> PyResult<R> {
+        self.try_call(py, command)?
+            .ok_or_else(|| PyRuntimeError::new_err("native handle is closed"))
+    }
+    pub fn try_call(&self, py: Python<'_>, command: C) -> PyResult<Option<R>> {
         if self
             .executing
             .compare_exchange(false, true, Ordering::AcqRel, Ordering::Acquire)
@@ -594,9 +598,7 @@ impl<C: Send + 'static, R: Send + 'static> CommandOwner<C, R> {
         }
         let _release = Release(&self.executing);
         *self.commands.lock().unwrap_or_else(|e| e.into_inner()) = Some(command);
-        self.inner
-            .next(py)?
-            .ok_or_else(|| PyRuntimeError::new_err("native handle is closed"))??
+        self.inner.next(py)?.map(Result::flatten).transpose()
     }
     pub fn finish_initialization(&mut self) {
         self.inner.finish_initialization();

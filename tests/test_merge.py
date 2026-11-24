@@ -32,12 +32,13 @@ class MergeTests(unittest.TestCase):
             self.assertEqual(conflict.ours.location(), b"file")
             self.assertIsNotNone(conflict.content_merge())
             with merged.tree as editor:
-                unresolved_tree = editor.write()
-                index = repo.index_from_tree(unresolved_tree)
-                self.assertTrue(merged.index_changed_after_applying_conflicts(index, gix.TreatAsUnresolved.git()))
-                self.assertEqual([e.stage() for e in index.entries()], [1, 2, 3])
                 editor.upsert("file", "blob", repo.write_blob(b"resolved\n"))
                 resolved_tree = editor.write()
+            index = merged.index_file(gix.TreatAsUnresolved.git())
+            self.assertEqual([e.stage() for e in index.entries()], [1, 2, 3])
+            self.assertEqual([e.id for e in index.entries()], [
+                repo.find_tree(tree).find_entry("file").id() for tree in (base_tree, ours_tree, theirs_tree)
+            ])
             self.assertEqual(progress.state, "succeeded")
             self.assertEqual(repo.find_tree(resolved_tree).find_entry(b"file").object().data, b"resolved\n")
             options = gix.CommitMergeOptions(repo.tree_merge_options().with_file_favor("ours"))
@@ -51,6 +52,20 @@ class MergeTests(unittest.TestCase):
             virtual = repo.virtual_merge_base([base])
             self.assertEqual(virtual.commit_id, base.id)
             self.assertEqual(virtual.tree_id, base_tree)
+
+    def test_in_memory_merge_index_keeps_editor_available(self):
+        with tempfile.TemporaryDirectory() as directory:
+            repo = gix.init(directory, options=gix.OpenOptions.isolated()).with_object_memory()
+            base = repo.empty_tree().id
+            blob = repo.write_blob(b"in memory")
+            with repo.empty_tree().edit() as editor:
+                editor.upsert("file", "blob", blob)
+                ours = editor.write()
+            merge = repo.merge_trees(base, ours, base)
+            with merge.tree as editor:
+                self.assertEqual([entry.id for entry in merge.index_file(gix.TreatAsUnresolved.git()).entries()], [blob])
+                self.assertEqual(editor.write(), ours)
+            self.assertEqual([entry.id for entry in merge.index_file(gix.TreatAsUnresolved.git()).entries()], [blob])
 
 
 if __name__ == "__main__":

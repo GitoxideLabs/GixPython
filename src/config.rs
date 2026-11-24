@@ -402,9 +402,7 @@ impl Repository {
     }
     fn open_options(&self, py: Python<'_>) -> PyResult<crate::repository::OpenOptions> {
         self.handle.run(py, |r| {
-            Ok(crate::repository::OpenOptions {
-                inner: r.open_options().clone(),
-            })
+            Ok(crate::repository::OpenOptions::from_native(r.open_options()))
         })
     }
 }

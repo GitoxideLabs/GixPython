@@ -448,7 +448,7 @@ impl Reference {
         let id = ObjectSpec::extract(id)?;
         let message = bytes(reflog_message)?;
         self.native_mut(py, move |r| {
-            r.set_target_id(id.resolve(r.repo)?, message).map_err(to_py)
+            r.set_target_id(id.resolve(r.repo())?, message).map_err(to_py)
         })
     }
     fn delete(&self, py: Python<'_>) -> PyResult<()> {
@@ -476,7 +476,7 @@ impl Reference {
 #[derive(Clone)]
 pub struct Head {
     pub(crate) handle: RepoHandle,
-    pub(crate) inner: gix::head::Kind,
+    pub(crate) inner: gix::HeadOwned,
 }
 
 impl Head {
@@ -489,7 +489,7 @@ impl Head {
         let (result, inner) = self.handle.run(py, move |repo| {
             let mut head = inner.attach(repo);
             let result = work(&mut head);
-            Ok((result, head.kind))
+            Ok((result, head.detach_repo()))
         })?;
         self.inner = inner;
         result
@@ -503,29 +503,29 @@ impl Head {
     }
     fn referent_name<'py>(&self, py: Python<'py>) -> Option<Bound<'py, PyBytes>> {
         let name = match &self.inner {
-            gix::head::Kind::Symbolic(reference) => &reference.name,
-            gix::head::Kind::Unborn(name) => name,
-            gix::head::Kind::Detached { .. } => return None,
+            gix::HeadOwned::Symbolic(reference) => &reference.name,
+            gix::HeadOwned::Unborn(name) => name,
+            gix::HeadOwned::Detached { .. } => return None,
         };
         Some(PyBytes::new(py, name.as_bstr()))
     }
     fn is_detached(&self) -> bool {
-        matches!(self.inner, gix::head::Kind::Detached { .. })
+        matches!(self.inner, gix::HeadOwned::Detached { .. })
     }
     fn is_unborn(&self) -> bool {
-        matches!(self.inner, gix::head::Kind::Unborn(_))
+        matches!(self.inner, gix::HeadOwned::Unborn(_))
     }
     fn id(&self) -> Option<ObjectId> {
         let inner = match &self.inner {
-            gix::head::Kind::Symbolic(r) => r.target.try_id()?.to_owned(),
-            gix::head::Kind::Detached { target, peeled } => peeled.unwrap_or(*target),
-            gix::head::Kind::Unborn(_) => return None,
+            gix::HeadOwned::Symbolic(r) => r.target.try_id()?.to_owned(),
+            gix::HeadOwned::Detached { target, peeled } => peeled.unwrap_or(*target),
+            gix::HeadOwned::Unborn(_) => return None,
         };
         Some(ObjectId { inner })
     }
     fn try_into_referent(&self) -> Option<Reference> {
         match &self.inner {
-            gix::head::Kind::Symbolic(inner) => Some(Reference::from_detached(self.handle.clone(), inner.clone())),
+            gix::HeadOwned::Symbolic(inner) => Some(Reference::from_detached(self.handle.clone(), inner.clone())),
             _ => None,
         }
     }
@@ -852,7 +852,7 @@ impl Repository {
             r.head()
                 .map(|head| Head {
                     handle,
-                    inner: head.kind,
+                    inner: head.detach_repo(),
                 })
                 .map_err(to_py)
         })

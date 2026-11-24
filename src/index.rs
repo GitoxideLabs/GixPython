@@ -519,7 +519,7 @@ impl IndexFile {
         self.mutate(py, move |index| {
             index.verify_entries().map_err(to_py)?;
             index
-                .write(gix::index::write::Options { skip_hash, extensions })
+                .write(gix::index::write::Options { skip_hash, extensions }, Default::default())
                 .map_err(to_py)
         })
     }

@@ -280,7 +280,12 @@ impl ModulesFile {
         relative_path: &Bound<'_, PyAny>,
     ) -> PyResult<Option<Bound<'py, PyBytes>>> {
         let path = bytes(relative_path)?;
-        let value = self.with(py, |inner| Ok(inner.name_by_path(path.as_bstr()).map(|v| v.to_vec())))?;
+        let value = self.with(py, |inner| {
+            inner
+                .name_by_path(path.as_bstr())
+                .map(|v| v.map(|name| name.to_vec()))
+                .map_err(to_py)
+        })?;
         Ok(value.map(|v| PyBytes::new(py, &v)))
     }
     fn path<'py>(&self, py: Python<'py>, name: &Bound<'_, PyAny>) -> PyResult<Bound<'py, PyBytes>> {
@@ -483,7 +488,7 @@ impl Submodule {
     fn git_dir(&self, py: Python<'_>) -> PyResult<PathBuf> {
         self.call(py, |s| s.git_dir().map_err(to_py))
     }
-    fn work_dir(&self, py: Python<'_>) -> PyResult<PathBuf> {
+    fn work_dir(&self, py: Python<'_>) -> PyResult<Option<PathBuf>> {
         self.call(py, |s| s.work_dir().map_err(to_py))
     }
     fn git_dir_try_old_form(&self, py: Python<'_>) -> PyResult<PathBuf> {
