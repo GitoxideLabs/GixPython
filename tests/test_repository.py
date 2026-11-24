@@ -1,7 +1,9 @@
 import concurrent.futures
+import os
 from pathlib import Path
 import tempfile
 import unittest
+from unittest.mock import patch
 
 import gix
 
@@ -25,6 +27,18 @@ class RepositoryTests(unittest.TestCase):
                 self.assertEqual(values, [b"\x00binary\xff"] * 128)
                 self.assertEqual(len(bytes(oid)), kind.len_in_bytes())
                 self.assertEqual(gix.ObjectId(str(oid)), oid)
+
+    def test_open_options_honor_an_alternate_index(self):
+        with tempfile.TemporaryDirectory() as directory:
+            path = Path(directory)
+            gix.init(path, options=gix.OpenOptions.isolated())
+            alternate = path / "alternate-index"
+            env = {key: value for key, value in os.environ.items() if not key.startswith("GIT_")}
+            env.update(GIT_INDEX_FILE=str(alternate), GIT_CONFIG_GLOBAL=os.devnull, GIT_CONFIG_NOSYSTEM="1")
+            with patch.dict(os.environ, env, clear=True):
+                options = gix.OpenOptions().strict_config(True)
+                for repo in (options.open(path), gix.open_opts(path, options), gix.discover_opts(path, options)):
+                    self.assertEqual(repo.index_path(), alternate)
 
     def test_mutations_and_object_memory_persist(self):
         with tempfile.TemporaryDirectory() as directory:

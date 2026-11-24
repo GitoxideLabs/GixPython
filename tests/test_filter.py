@@ -43,6 +43,23 @@ class FilterTests(unittest.TestCase):
             with pipeline.convert_to_worktree(b"next\n", "file.txt") as stream:
                 self.assertEqual(stream.read(), b"next\r\n")
 
+    def test_legacy_worktree_encoding_round_trips(self):
+        (self.path / ".gitattributes").write_bytes(
+            b"europe.txt working-tree-encoding=WINDOWS-1252\njapan.txt working-tree-encoding=SHIFT_JIS\n"
+        )
+        pipeline, index = self.repo.filter_pipeline()
+        with pipeline:
+            for path, encoding, text in (
+                ("europe.txt", "cp1252", "café €\n"),
+                ("japan.txt", "shift_jis", "日本\n"),
+            ):
+                with self.subTest(encoding=encoding):
+                    raw = text.encode(encoding)
+                    with pipeline.convert_to_git(raw, path, index) as stream:
+                        self.assertEqual(stream.read(), text.encode())
+                    with pipeline.convert_to_worktree(text.encode(), path) as stream:
+                        self.assertEqual(stream.read(), raw)
+
     def test_worktree_file_context_and_independent_parallel_pipelines(self):
         (self.path / ".gitattributes").write_bytes(b"*.txt text eol=crlf\n")
         (self.path / "file.txt").write_bytes(b"worktree\r\n")

@@ -450,6 +450,8 @@ enum EditorCommand {
     Remove(Vec<u8>, bool),
     Get(Vec<u8>),
     SetRoot(Arc<gix::ObjectDetached>),
+    #[cfg(feature = "merge")]
+    MergeIndex(crate::merge::MergeIndex),
     Write,
 }
 
@@ -457,6 +459,8 @@ enum EditorReply {
     Unit,
     Entry(Option<TreeEntry>),
     Id(ObjectId),
+    #[cfg(feature = "merge")]
+    MergeIndex(crate::index::IndexFile),
 }
 
 enum EditorRoot {
@@ -527,6 +531,8 @@ impl TreeEditor {
                             editor.set_root(&tree).map_err(to_py)?;
                             Ok(EditorReply::Unit)
                         }
+                        #[cfg(feature = "merge")]
+                        EditorCommand::MergeIndex(request) => request.build(repo).map(EditorReply::MergeIndex),
                         EditorCommand::Write => editor
                             .write()
                             .map(|id| EditorReply::Id(ObjectId { inner: id.detach() }))
@@ -540,6 +546,19 @@ impl TreeEditor {
         editor.call(py, EditorCommand::Ready)?;
         editor.inner.finish_initialization();
         Ok(editor)
+    }
+
+    #[cfg(feature = "merge")]
+    pub(crate) fn try_merge_index(
+        &self,
+        py: Python<'_>,
+        request: crate::merge::MergeIndex,
+    ) -> PyResult<Option<crate::index::IndexFile>> {
+        match self.inner.try_call(py, EditorCommand::MergeIndex(request))? {
+            Some(EditorReply::MergeIndex(index)) => Ok(Some(index)),
+            None => Ok(None),
+            _ => Err(PyRuntimeError::new_err("unexpected tree editor response")),
+        }
     }
 
     fn call(&self, py: Python<'_>, command: EditorCommand) -> PyResult<EditorReply> {

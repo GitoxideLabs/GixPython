@@ -2,7 +2,7 @@ use crate::{
     diff::TreeChange,
     diff_options::Rewrites,
     error::to_py,
-    index::IndexFile,
+    index::{IndexFile, IndexSnapshot},
     objects::TreeEditor,
     repository::{RepoHandle, Repository},
     runtime::{self, CancellationToken, Progress},
@@ -319,6 +319,29 @@ impl ContentMerge {
     }
 }
 
+#[derive(Clone)]
+pub(crate) struct MergeIndex {
+    plan: Arc<gix::merge::tree::IndexPlan>,
+    how: TreatAsUnresolved,
+    existing: Option<IndexSnapshot>,
+}
+
+impl MergeIndex {
+    pub(crate) fn build(self, repo: &gix::Repository) -> PyResult<IndexFile> {
+        // The merge plan supplies the index contents. The editor supplies the native path-validation policy.
+        let outcome = gix::merge::tree::Outcome {
+            tree: repo.empty_tree().edit().map_err(to_py)?,
+            index: Arc::unwrap_or_clone(self.plan),
+            conflicts: Vec::new(),
+            failed_on_first_unresolved_conflict: false,
+        };
+        outcome
+            .index_file(self.how.inner, self.existing.as_deref().map(|file| &**file))
+            .map(IndexFile::from_native)
+            .map_err(to_py)
+    }
+}
+
 #[pyclass(frozen, module = "gix")]
 pub struct TreeMergeOutcome {
     tree: Py<TreeEditor>,
@@ -350,21 +373,18 @@ impl TreeMergeOutcome {
     }
     #[pyo3(signature = (how, existing=None))]
     fn index_file(&self, py: Python<'_>, how: TreatAsUnresolved, existing: Option<&IndexFile>) -> PyResult<IndexFile> {
-        let existing = existing.map(IndexFile::snapshot).transpose()?;
-        let index = self.index.clone();
-        self.handle.run(py, move |repo| {
-            // The merge plan supplies the index contents. The editor supplies the native path-validation policy.
-            let outcome = gix::merge::tree::Outcome {
-                tree: repo.empty_tree().edit().map_err(to_py)?,
-                index: Arc::unwrap_or_clone(index),
-                conflicts: Vec::new(),
-                failed_on_first_unresolved_conflict: false,
-            };
-            outcome
-                .index_file(how.inner, existing.as_ref().map(|file| &***file))
-                .map(IndexFile::from_native)
-                .map_err(to_py)
-        })
+        let request = MergeIndex {
+            plan: self.index.clone(),
+            how,
+            existing: existing.map(IndexFile::snapshot).transpose()?,
+        };
+        // An in-memory repository stays on the editor worker until the editor closes.
+        if self.handle.is_in_memory()
+            && let Some(index) = self.tree.borrow(py).try_merge_index(py, request.clone())?
+        {
+            return Ok(index);
+        }
+        self.handle.run(py, move |repo| request.build(repo))
     }
 }
 #[pyclass(frozen, module = "gix")]

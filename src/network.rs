@@ -827,7 +827,7 @@ fn prepare_clone_inner(
                     path,
                     kind,
                     Default::default(),
-                    options.unwrap_or_default().inner,
+                    options.unwrap_or_default().into_native(),
                 )
                 .map_err(to_py);
                 match native {

@@ -53,6 +53,20 @@ class MergeTests(unittest.TestCase):
             self.assertEqual(virtual.commit_id, base.id)
             self.assertEqual(virtual.tree_id, base_tree)
 
+    def test_in_memory_merge_index_keeps_editor_available(self):
+        with tempfile.TemporaryDirectory() as directory:
+            repo = gix.init(directory, options=gix.OpenOptions.isolated()).with_object_memory()
+            base = repo.empty_tree().id
+            blob = repo.write_blob(b"in memory")
+            with repo.empty_tree().edit() as editor:
+                editor.upsert("file", "blob", blob)
+                ours = editor.write()
+            merge = repo.merge_trees(base, ours, base)
+            with merge.tree as editor:
+                self.assertEqual([entry.id for entry in merge.index_file(gix.TreatAsUnresolved.git()).entries()], [blob])
+                self.assertEqual(editor.write(), ours)
+            self.assertEqual([entry.id for entry in merge.index_file(gix.TreatAsUnresolved.git()).entries()], [blob])
+
 
 if __name__ == "__main__":
     unittest.main()

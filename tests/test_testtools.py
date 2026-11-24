@@ -14,7 +14,7 @@ import gix
 
 class TesttoolsTests(unittest.TestCase):
     def run_fixture_test(self, source, directory):
-        env = {key: value for key, value in os.environ.items() if not key.startswith("GIT_")}
+        env = {key: value for key, value in os.environ.items() if not key.startswith("GIT_") and key != "GIX_TEST_FIXTURE_HASH"}
         env.update(PYTHONPATH=str(Path(gix.__file__).parent.parent), GIX_TEST_IGNORE_ARCHIVES="1")
         result = subprocess.run([sys.executable, "-c", textwrap.dedent(source)], cwd=directory,
                                 env=env, capture_output=True, text=True, timeout=30)
