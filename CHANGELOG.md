@@ -7,6 +7,8 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## Unreleased
 
+## 0.4.0 (2026-11-24)
+
 ### Breaking Changes
 
  - Upgrade to `gix 0.91.0`, `gix-archive 0.40.0`, and `gix-testtools 0.23.0`.

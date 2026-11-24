@@ -1,6 +1,6 @@
 # Releasing GixPython
 
-Version **0.3.0** targets **macOS 11+ on Apple Silicon and Intel**.
+Version **0.4.0** targets **macOS 11+ on Apple Silicon and Intel**.
 The release contains four wheels and one source archive:
 
 | Architecture | Ordinary CPython | Free-threaded CPython |
@@ -44,11 +44,11 @@ Use Gitoxide's changelog style: `## VERSION (YYYY-MM-DD)`, with `New Features`,
 `Bug Fixes`, and `Other` sections when applicable. Set the date to the actual
 release day before creating the tag.
 
-For `0.3.0`, review the dated section in `CHANGELOG.md` and keep `Unreleased`
+For `0.4.0`, review the dated section in `CHANGELOG.md` and keep `Unreleased`
 for future changes. Validate locally before committing the preparation:
 
 ```sh
-python3 etc/check_release.py --tag v0.3.0
+python3 etc/check_release.py --tag v0.4.0
 just helper-tests
 ```
 
@@ -73,17 +73,17 @@ older development artifacts separate from the release set.
 
 ## Publish
 
-After reviewing the tested commit, create an annotated tag `v0.3.0` and push
+After reviewing the tested commit, create an annotated tag `v0.4.0` and push
 that tag to `origin`. Start **Release** again with that tag selected and
 **publish checked**:
 
 ```sh
-git tag -a v0.3.0 -m "Release GixPython 0.3.0"
-git push origin v0.3.0
-gh workflow run release.yml --repo GitoxideLabs/GixPython --ref v0.3.0 -f publish=true
+git tag -a v0.4.0 -m "Release GixPython 0.4.0"
+git push origin v0.4.0
+gh workflow run release.yml --repo GitoxideLabs/GixPython --ref v0.4.0 -f publish=true
 ```
 
-Preserve the existing `v0.1.0` and `v0.2.0` tags and published history.
+Preserve the existing `v0.1.0`, `v0.2.0`, and `v0.3.0` tags and published history.
 
 The workflow checks that the tag matches the version, rebuilds and tests the
 complete set, then waits for the `pypi` environment approval. Approve the job
@@ -95,12 +95,12 @@ Once uploaded, verify on both architectures and both interpreter kinds:
 
 ```sh
 python -m venv .release-check
-.release-check/bin/python -m pip install --only-binary=:all: GixPython==0.3.0
+.release-check/bin/python -m pip install --only-binary=:all: GixPython==0.4.0
 .release-check/bin/python -c 'import gix; print(gix.__version__, gix.build_features())'
 ```
 
 For free-threaded Python, set `PYTHON_GIL=0` and verify importing `gix` leaves
 `sys._is_gil_enabled()` false. The workflow publishes to PyPI only; create an
-optional GitHub release separately for `v0.3.0`, using only the `0.3.0` section
+optional GitHub release separately for `v0.4.0`, using only the `0.4.0` section
 of `CHANGELOG.md` as its release notes. PyPI filenames cannot be replaced after
 upload; corrections require a new version.
